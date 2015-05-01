@@ -67,6 +67,10 @@ namespace dharma_vm {
 			const static string malformed_operands;
 			const static string identifier_not_previously_declared;
 			const static string literal_cannot_be_a_destination_operand;
+			const static string expected_integer_or_floating_point_operands_for_this_instruction;
+			const static string only_integers_are_acceptable_here;
+			const static string register_not_previously_declared;
+			const static string only_booleans_are_acceptable_here;
 	};
 
 	enum type_kind {
@@ -75,6 +79,10 @@ namespace dharma_vm {
 
 	enum type_pure_kind {
 		TYPE_PURE_YES, TYPE_PURE_NO, TYPE_PURE_NONE
+	};
+
+	enum type_class_kind {
+		TYPE_CLASS_YES, TYPE_CLASS_NO, TYPE_CLASS_NONE
 	};
 
 	enum literal_kind {
@@ -118,9 +126,24 @@ namespace dharma_vm {
 			const storage_type_kind get_storage_type_kind();
 	};
 
-	class runtime_variable : public instruction {
+	class type_information {
 		type_kind t_kind;
 		type_pure_kind tp_kind;
+		type_class_kind tc_kind;
+		string class_name;
+		public:
+			type_information(type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn);
+			~type_information();
+			const type_kind get_type_kind();
+			const type_pure_kind get_type_pure_kind();
+			const type_class_kind get_type_class_kind();
+			string get_class_name();
+			const bool operator==(type_information t_inf);
+			const bool operator!=(type_information t_inf);
+	};
+
+	class runtime_variable : public instruction {
+		type_information t_inf;
 		string str;
 		int integer;
 		float decimal;
@@ -129,6 +152,8 @@ namespace dharma_vm {
 		map<shared_ptr<runtime_variable>, shared_ptr<runtime_variable>> dict;
 		storage store;
 		public:
+			runtime_variable(shared_ptr<runtime_variable> rvar);
+			runtime_variable(runtime_variable& rvar);
 			runtime_variable(storage s, string st);
 			runtime_variable(storage s, int i);
 			runtime_variable(storage s, float f);
@@ -142,7 +167,6 @@ namespace dharma_vm {
 			bool get_boolean();
 			int get_integer();
 			float get_decimal();
-			const type_kind get_type_kind();
 			vector<shared_ptr<runtime_variable>> get_list_tuple();
 			map<shared_ptr<runtime_variable>, shared_ptr<runtime_variable>> get_dict();
 			int set_integer(int i);
@@ -151,10 +175,9 @@ namespace dharma_vm {
 			bool set_boolean(bool b);
 			vector<shared_ptr<runtime_variable>> set_list_tuple(vector<shared_ptr<runtime_variable>> lt);
 			map<shared_ptr<runtime_variable>, shared_ptr<runtime_variable>> set_dict(map<shared_ptr<runtime_variable>, shared_ptr<runtime_variable>> d);
-			type_kind set_type_kind(type_kind tk);
 			storage get_storage();
-			const type_pure_kind get_type_pure_kind();
-			type_pure_kind set_type_pure_kind(type_pure_kind tpk);
+			type_information get_type_information();
+			type_information set_type_information(type_information t);
 	};
 
 	class label : public instruction {
@@ -181,7 +204,7 @@ namespace dharma_vm {
 		vector<string> code;
 
 		int find_instruction(string str);
-		int find_instruction(int i);
+		int find_instruction(int r);
 		pair<literal_kind, string> recognize_identifier(string str);
 
 		public:
