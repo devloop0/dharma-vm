@@ -8,6 +8,10 @@
 #include <map>
 #include <regex>
 
+#if WIN32
+#include <Windows.h>
+#endif
+
 using std::cout;
 using std::string;
 using std::vector;

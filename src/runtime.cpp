@@ -297,7 +297,25 @@ namespace dharma_vm {
 	}
 
 	bool runtime_utilities::report_error_and_terminate_program(string msg, vector<string> instruction, int line, int index) {
+#if WIN32
+		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+		bool colored = true;
+		if (handle == INVALID_HANDLE_VALUE) {
+			cerr << "Could not output colored diagnostics. Defaulting to regular, non-colored output. (Perhaps you do not have the file kernel32.dll)?\n\n";
+			colored = false;
+		}
+		if (colored) {
+			CONSOLE_SCREEN_BUFFER_INFO console_screen_buffer_info;
+			GetConsoleScreenBufferInfo(handle, &console_screen_buffer_info);
+			SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_INTENSITY);
+			cerr << "Error ";
+			SetConsoleTextAttribute(handle, console_screen_buffer_info.wAttributes);
+		}
+		else
+			cerr << "Error ";
+#else
 		cerr << "\033[31mError \033[0m";
+#endif
 		string print;
 		int caret = 0;
 		for(int i = 0; i < instruction.size(); i++) {
@@ -311,7 +329,25 @@ namespace dharma_vm {
 		cerr << print << "\n\t";
 		for(int i = 0; i < caret; i++)
 			cerr << ' ';
+#if WIN32
+		HANDLE handle2 = GetStdHandle(STD_OUTPUT_HANDLE);
+		bool colored2 = true;
+		if (handle2 == INVALID_HANDLE_VALUE) {
+			cerr << "Could not output colored diagnostics. Defaulting to regular, non-colored output. (Perhaps you do not have the file kernel32.dll?)\n\n";
+			colored2 = false;
+		}
+		if (colored2) {
+			CONSOLE_SCREEN_BUFFER_INFO console_screen_buffer_info2;
+			GetConsoleScreenBufferInfo(handle2, &console_screen_buffer_info2);
+			SetConsoleTextAttribute(handle2, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+			cerr << "^";
+			SetConsoleTextAttribute(handle2, console_screen_buffer_info2.wAttributes);
+		}
+		else
+			cerr << "^";
+#else
 		cerr << "\033[32m^\033[0m";
+#endif
 		cerr << "\n\n";
 		exit(1);
 		return false;
@@ -319,8 +355,8 @@ namespace dharma_vm {
 
 	string runtime_utilities::trim(string s) {
 		string temp = s;
-		temp.erase(temp.begin(), std::find_if(temp.begin(), temp.end(), [](char c) -> bool { return !std::isspace(c); }));
-		temp.erase(std::find_if(temp.rbegin(), temp.rend(), [](char c) -> bool { return !std::isspace(c); }).base(), temp.end());
+		temp.erase(temp.begin(), std::find_if(temp.begin(), temp.end(), [](char c) -> bool { return !isspace(c); }));
+		temp.erase(std::find_if(temp.rbegin(), temp.rend(), [](char c) -> bool { return !isspace(c); }).base(), temp.end());
 		return temp;
 	}
 

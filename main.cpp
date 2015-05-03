@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
 	vector<string> vec;
 	vec.push_back("mov r0 [$3]");
 	vec.push_back("mov r1 [$4]");
-	vec.push_back("lt r1 r0");
+	vec.push_back("lt [$2] r0");
 	runtime r(vec);
 	r.run_program();
 }
