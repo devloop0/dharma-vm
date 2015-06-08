@@ -91,10 +91,7 @@ namespace dharma_vm {
 		boolean = b;
 		list_tuple = lt;
 		dict = di;
-		if (t_inf == type_information_list::_tuple)
-			unmodifiable = true;
-		else
-			unmodifiable = false;
+		unmodifiable = false;
 	}
 
 	runtime_variable::~runtime_variable() {
@@ -769,6 +766,7 @@ namespace dharma_vm {
 				string two = src->get_string();
 				dest->set_boolean(one == two);
 				dest->set_type_information(type_information_list::_boolean);
+				return dest;
 			}
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
@@ -1077,6 +1075,12 @@ namespace dharma_vm {
 		}
 		else if (type_two == type_information_list::_pure_dict) {
 			if (type_one == type_information_list::_dict || type_one == type_information_list::_pure_dict)
+				return dest;
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_two == type_information_list::_pure_func) {
+			if (type_one == type_information_list::_func || type_two == type_information_list::_pure_func)
 				return dest;
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
