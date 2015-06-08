@@ -35,6 +35,8 @@ namespace dharma_vm {
 	const string vm_instruction_list::list = "list";
 	const string vm_instruction_list::tupl = "tupl";
 	const string vm_instruction_list::dict = "dict";
+	const string vm_instruction_list::func = "func";
+	const string vm_instruction_list::efunc = "efunc";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -45,6 +47,7 @@ namespace dharma_vm {
 	const string runtime_diagnostic_messages::unmodifiable_value = "Unmodifiable value.";
 	const string runtime_diagnostic_messages::key_not_found = "Key not found.";
 	const string runtime_diagnostic_messages::field_not_found = "Field not found.";
+	const string runtime_diagnostic_messages::function_overload_not_found = "Function overload not found.";
 
 	type_information::type_information(type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn) {
 		t_kind = tk;
@@ -262,6 +265,8 @@ namespace dharma_vm {
 	const type_information type_information_list::_pure_dict = type_information(type_kind::TYPE_DICT, type_pure_kind::TYPE_PURE_YES, type_class_kind::TYPE_CLASS_NO, "");
 	const type_information type_information_list::_pure_nil = type_information(type_kind::TYPE_NIL, type_pure_kind::TYPE_PURE_YES, type_class_kind::TYPE_CLASS_NO, "");
 	const type_information type_information_list::bad = type_information(type_kind::TYPE_NONE, type_pure_kind::TYPE_PURE_NONE, type_class_kind::TYPE_CLASS_NONE, "");
+	const type_information type_information_list::_func = type_information(type_kind::TYPE_FUNC, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_NO, "");
+	const type_information type_information_list::_pure_func = type_information(type_kind::TYPE_FUNC, type_pure_kind::TYPE_PURE_YES, type_class_kind::TYPE_CLASS_NO, "");
 
 	shared_ptr<runtime_variable> operator+(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src) {
 		if (dest == nullptr || src == nullptr)
@@ -758,6 +763,16 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
+		else if (type_one == type_information_list::_func) {
+			string one = dest->get_string();
+			if (type_two == type_information_list::_func) {
+				string two = src->get_string();
+				dest->set_boolean(one == two);
+				dest->set_type_information(type_information_list::_boolean);
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
 		else if (type_one == type_information_list::_boolean) {
 			bool one = dest->get_boolean();
 			if (type_two == type_information_list::_boolean) {
@@ -1111,6 +1126,11 @@ namespace dharma_vm {
 			dest->set_type_information(type_information_list::_dict);
 			return dest;
 		}
+		else if (src->get_type_information() == type_information_list::_func) {
+			dest->set_string(src->get_string());
+			dest->set_type_information(type_information_list::_func);
+			return dest;
+		}
 		else if (src->get_type_information() == type_information_list::_pure_int) {
 			dest->set_type_information(type_information_list::_pure_int);
 			return dest;
@@ -1137,6 +1157,10 @@ namespace dharma_vm {
 		}
 		else if (src->get_type_information() == type_information_list::_pure_dict) {
 			dest->set_type_information(type_information_list::_pure_dict);
+			return dest;
+		}
+		else if (src->get_type_information() == type_information_list::_pure_func) {
+			dest->set_type_information(type_information_list::_pure_func);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_nil) {
@@ -1279,9 +1303,30 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
+		else if (type_one == type_information_list::_func) {
+			if (type_two == type_information_list::_func) {
+				dest->set_string(src->get_string());
+				dest->set_type_information(type_information_list::_func);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
 		else if (type_one == type_information_list::_pure_int) {
 			if (type_two == type_information_list::_pure_int) {
 				dest->set_type_information(type_information_list::_pure_int);
+				return dest;
+			}
+			else if (type_two == type_information_list::_pure_nil) {
+				dest->set_type_information(type_information_list::_pure_nil);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_one == type_information_list::_pure_func) {
+			if (type_two == type_information_list::_pure_func) {
+				dest->set_type_information(type_information_list::_pure_func);
 				return dest;
 			}
 			else if (type_two == type_information_list::_pure_nil) {
@@ -1399,6 +1444,12 @@ namespace dharma_vm {
 			else
 				return false;
 		}
+		else if (dest->get_type_information() == type_information_list::_func) {
+			if (src->get_type_information() == type_information_list::_func)
+				return dest->get_string() == src->get_string();
+			else
+				return false;
+		}
 		else if (dest->get_type_information() == type_information_list::_string) {
 			if (src->get_type_information() == type_information_list::_string)
 				return dest->get_string() == src->get_string();
@@ -1502,7 +1553,7 @@ namespace dharma_vm {
 	tuple<string, register_identifier_kind, type_kind> runtime::deduce_register_identifier_kind(string ident) {
 		string temp = ident;
 		if (temp[0] == 'r') {
-			if ((int)temp.find('|') >= 0 || (int)temp.find('/') >= 0 || (int)temp.find('@') >= 0)
+			if ((int)temp.find('|') >= 0 || (int)temp.find('/') >= 0 || (int)temp.find('@') >= 0 || (int)temp.find(':') >= 0)
 				return make_tuple(temp, register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX, type_kind::TYPE_NONE);
 			temp.erase(0, 1);
 			return make_tuple(temp, register_identifier_kind::REGISTER_IDENTIFIER_REGISTER, type_kind::TYPE_NONE);
@@ -1531,7 +1582,7 @@ namespace dharma_vm {
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 			}
 			else {
-				if ((int)temp.find('|') >= 0 || (int)temp.find('/') >= 0 || (int)temp.find('@') >= 0)
+				if ((int)temp.find('|') >= 0 || (int)temp.find('/') >= 0 || (int)temp.find('@') >= 0 || (int) temp.find(':') >= 0)
 					return make_tuple(temp, register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX, type_kind::TYPE_NONE);
 				else
 					return make_tuple(temp, register_identifier_kind::REGISTER_IDENTIFIER_IDENTIFIER, type_kind::TYPE_NONE);
@@ -1581,322 +1632,282 @@ namespace dharma_vm {
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 		shared_ptr<runtime_variable> base = nullptr;
 		string temp;
-		vector<char> separator_list;
+		vector<string> token_list;
 		for (int i = 0; i < deduced_string.length(); i++) {
-			if (deduced_string[i] == '|' || (i == deduced_string.length() - 1 && separator_list.size() > 0 && separator_list[separator_list.size() - 1] == '|')) {
-				if (i == deduced_string.length() - 1)
-					temp.push_back(deduced_string[i]);
-				if (temp[0] != 'r') {
-					temp.insert(0, "[");
-					temp.push_back(']');
-				}
-				tuple<string, register_identifier_kind, type_kind> tup = deduce_register_identifier_kind(temp);
-				string inner_string = get<0>(tup);
-				register_identifier_kind inner_ri_kind = get<1>(tup);
-				shared_ptr<runtime_variable> temporary_runtime_variable = nullptr;
-				if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_IDENTIFIER) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(inner_string);
-					if (!pai.second)
-						report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-					temporary_runtime_variable = pai.first;
-				}
-				else if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_REGISTER) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(stoi(inner_string));
-					if (!pai.second)
-						report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-					temporary_runtime_variable = pai.first;
-				}
-				else
-					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-				if (separator_list.size() == 0) base = temporary_runtime_variable;
-				else if (separator_list[separator_list.size() - 1] == '@') {
-					if (base == nullptr)
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					string str;
-					if (base->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
-						str = base->get_storage_field().get_identifier();
-					else
-						str = to_string(base->get_storage_field().get_register_number());
-					shared_ptr<runtime_variable> temporary_runtime_variable = deduce_runtime_variable("[" + str + "@" + temp + "]", true);
-					base = temporary_runtime_variable;
-				}
-				else {
-					bool unmod = base->get_unmodifiable();
-					if (base == nullptr)
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
-						if (temporary_runtime_variable->get_type_information() != type_information_list::_int)
-							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, temporary_runtime_variable);
-						if (temporary_runtime_variable->get_integer() < 0 || temporary_runtime_variable->get_integer() >= base->get_list_tuple().size())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, temporary_runtime_variable);
-						base = base->get_list_tuple()[temporary_runtime_variable->get_integer()];
-					}
-					else if (base->get_type_information() == type_information_list::_string) {
-						if (temporary_runtime_variable->get_type_information() != type_information_list::_int)
-							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, temporary_runtime_variable);
-						if (temporary_runtime_variable->get_integer() < 0 || temporary_runtime_variable->get_integer() >= base->get_string().length())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, temporary_runtime_variable);
-						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, string(1, base->get_string()[temporary_runtime_variable->get_integer()]), false,
-							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_string);
-						instruction_list.push_back(created_string);
-						base = instruction_list[instruction_list.size() - 1];
-						runtime_temporary_count++;
-					}
-					else if (base->get_type_information() == type_information_list::_dict) {
-						if (base->get_dict().first.size() != base->get_dict().second.size())
-							report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, base);
-						if (base->get_dict().first.size() == 0)
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, base);
-						vector<shared_ptr<runtime_variable>> key_list = base->get_dict().first;
-						if (temporary_runtime_variable->get_type_information() == key_list[0]->get_type_information());
-						else
-							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, temporary_runtime_variable);
-						int index = -1;
-						for (int i = 0; i < key_list.size(); i++) {
-							bool store = equals_equals(temporary_runtime_variable, key_list[i]);
-							if (store) {
-								index = i;
-								break;
-							}
-						}
-						if (index == -1)
-							report_error_and_terminate_program(runtime_diagnostic_messages::key_not_found, temporary_runtime_variable);
-						base = base->get_dict().second[index];
-					}
-					else
-						report_error_and_terminate_program(runtime_diagnostic_messages::expected_sequence_for_subscript, base);
-					if (unmod)
-						base->set_unmodifiable(true);
-				}
-				separator_list.push_back('|');
+			if (deduced_string[i] == '@') {
+				if(temp.length() > 0)
+					token_list.push_back(temp);
 				temp.clear();
+				token_list.push_back("@");
 			}
-			else if (deduced_string[i] == '@' || (i == deduced_string.length() - 1 && separator_list.size() > 0 && separator_list[separator_list.size() - 1] == '@')) {
-				if (i == deduced_string.length() - 1)
-					temp.push_back(deduced_string[i]);
-				if (separator_list.size() == 0) {
-					if (temp[0] != 'r') {
-						temp.insert(0, "[");
-						temp.push_back(']');
-					}
-					tuple<string, register_identifier_kind, type_kind> tup = deduce_register_identifier_kind(temp);
-					string inner_string = get<0>(tup);
-					register_identifier_kind inner_ri_kind = get<1>(tup);
-					shared_ptr<runtime_variable> temporary_runtime_variable = nullptr;
-					if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_IDENTIFIER) {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(inner_string);
-						if (!pai.second)
-							report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-						temporary_runtime_variable = pai.first;
-					}
-					else if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_REGISTER) {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(stoi(inner_string));
-						if (!pai.second)
-							report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-						temporary_runtime_variable = pai.first;
-					}
-					else
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					base = temporary_runtime_variable;
-				}
-				else if (separator_list[separator_list.size() - 1] == '|') {
-					if (base == nullptr)
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					string str;
-					if (base->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
-						str = base->get_storage_field().get_identifier();
-					else
-						str = to_string(base->get_storage_field().get_register_number());
-					shared_ptr<runtime_variable> temporary_runtime_variable = deduce_runtime_variable("[" + str + "|" + temp + "]", true);
-					base = temporary_runtime_variable;
-					separator_list.push_back('@');
-				}
-				else {
-					bool unmod = base->get_unmodifiable();
-					if (base == nullptr)
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					else {
-						if (base->get_type_information() == type_information_list::_list) {
-							bool found = find(list_field_list.begin(), list_field_list.end(), temp) != list_field_list.end();
-							if (!found)
-								report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, nullptr);
-							if (temp == "size") {
-								shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_list_tuple().size(), -1, "", false,
-									vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
-								instruction_list.push_back(created_int);
-								base = instruction_list[instruction_list.size() - 1];
-								runtime_temporary_count++;
-							}
-							else
-								report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, base);
-						}
-						else if (base->get_type_information() == type_information_list::_tuple) {
-							bool found = find(tuple_field_list.begin(), tuple_field_list.end(), temp) != tuple_field_list.end();
-							if (!found)
-								report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, nullptr);
-							if (temp == "size") {
-								shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_list_tuple().size(), -1, "", false,
-									vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
-								instruction_list.push_back(created_int);
-								base = instruction_list[instruction_list.size() - 1];
-								runtime_temporary_count++;
-							}
-							else
-								report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, base);
-						}
-						else if (base->get_type_information() == type_information_list::_dict) {
-							bool found = find(dict_field_list.begin(), dict_field_list.end(), temp) != dict_field_list.end();
-							if (!found)
-								report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, nullptr);
-							report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-						}
-						else if (base->get_type_information() == type_information_list::_string) {
-							bool found = find(string_field_list.begin(), string_field_list.end(), temp) != string_field_list.end();
-							if (!found)
-								report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, nullptr);
-							if (temp == "size") {
-								shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_string().length(), -1, "", false,
-									vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
-								instruction_list.push_back(created_int);
-								base = instruction_list[instruction_list.size() - 1];
-								runtime_temporary_count++;
-							}
-							else
-								report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-						}
-						else
-							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
-					}
-				}
-				separator_list.push_back('@');
+			else if (deduced_string[i] == '|') {
+				if(temp.length() > 0)
+					token_list.push_back(temp);
 				temp.clear();
+				token_list.push_back("|");
 			}
-			else if (deduced_string[i] == '/' || (i == deduced_string.length() - 1 && separator_list.size() > 0 && separator_list[separator_list.size() - 1] == '/')) {
-				if (i == deduced_string.length() - 1)
-					temp.push_back(deduced_string[i]);
-				if (temp[0] != 'r') {
-					temp.insert(0, "[");
-					temp.push_back(']');
-				}
-				tuple<string, register_identifier_kind, type_kind> tup = deduce_register_identifier_kind(temp);
-				string inner_string = get<0>(tup);
-				register_identifier_kind inner_ri_kind = get<1>(tup);
-				shared_ptr<runtime_variable> temporary_runtime_variable = nullptr;
-				if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_IDENTIFIER) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(inner_string);
-					if (!pai.second)
-						report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-					temporary_runtime_variable = pai.first;
-				}
-				else if (inner_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_REGISTER) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(stoi(inner_string));
-					if (!pai.second)
-						report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-					temporary_runtime_variable = pai.first;
-				}
-				else
-					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-				if (separator_list.size() == 0) {
-					base = temporary_runtime_variable;
-					separator_list.push_back('/');
-				}
-				else if (separator_list[separator_list.size() - 1] == '|' || separator_list[separator_list.size() - 1] == '@') {
-					if (base == nullptr)
-						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-					string str;
-					string sep = string(1, separator_list[separator_list.size() - 1]);
-					if (base->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
-						str = base->get_storage_field().get_identifier();
+			else if (deduced_string[i] == '/') {
+				if(temp.length() > 0)
+					token_list.push_back(temp);
+				temp.clear();
+				i++;
+				int count = 0;
+				while (i < deduced_string.length()) {
+					if (deduced_string[i] == '/') {
+						if (count >= 2)
+							break;
+						temp.push_back(deduced_string[i]);
+						count++;
+					}
+					else if (deduced_string[i] == '@' || deduced_string[i] == '|' || deduced_string[i] == ':')
+						break;
 					else
-						str = to_string(base->get_storage_field().get_register_number());
-					shared_ptr<runtime_variable> temporary_runtime_variable = deduce_runtime_variable("[" + str + sep + temp + "]", true);
-					base = temporary_runtime_variable;
-					separator_list.push_back('/');
-				}
-				else {
-					bool unmod = base->get_unmodifiable();
-					if (temporary_runtime_variable->get_type_information() != type_information_list::_int)
-						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, temporary_runtime_variable);
-					if (i + 5 > deduced_string.length())
-						report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, base);
-					int delim_count = 0;
-					string str;
+						temp.push_back(deduced_string[i]);
 					i++;
-					for (; i < deduced_string.length(); i++) {
-						if (deduced_string[i] == '@' || deduced_string[i] == '|' || deduced_string[i] == '/') {
-							delim_count++;
-							if (delim_count == 2)
-								break;
-							str.push_back(deduced_string[i]);
-						}
-						else
-							str.push_back(deduced_string[i]);
-					}
-					if (i >= deduced_string.length() - 1);
-					else {
-						if (deduced_string[i] == '|' || deduced_string[i] == '@' || deduced_string[i] == '/')
-							separator_list.push_back(deduced_string[i]);
-						else
-							report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, base);
-					}
-					shared_ptr<runtime_variable> start = temporary_runtime_variable;
-					regex slash("/");
-					sregex_token_iterator iter;
-					sregex_token_iterator token(str.begin(), str.end(), slash, -1);
-					vector<string> parts;
-					while (token != iter) {
-						parts.push_back(*token);
-						token++;
-					}
-					if (parts.size() != 2)
-						report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, base);
-					shared_ptr<runtime_variable> end = deduce_runtime_variable(parts[0], true);
-					shared_ptr<runtime_variable> step = deduce_runtime_variable(parts[1], true);
-					if (end->get_type_information() != type_information_list::_int)
-						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, end);
-					if (step->get_type_information() != type_information_list::_int)
-						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, step);
-					if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
-						if (start->get_integer() < 0 || start->get_integer() >= base->get_list_tuple().size())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
-						else if (end->get_integer() < 0 || end->get_integer() > base->get_list_tuple().size() || end->get_integer() <= start->get_integer())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
-						else if (step->get_integer() < 0 || step->get_integer() >= base->get_list_tuple().size())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
-						vector<shared_ptr<runtime_variable>> vec;
-						for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
-							vec.push_back(base->get_list_tuple()[i]);
-						shared_ptr<runtime_variable> created = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
-							vec, pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), base->get_type_information());
-						instruction_list.push_back(created);
+				}
+				token_list.push_back("/");
+				token_list.push_back(temp);
+				temp.clear();
+				i--;
+			}
+			else if (deduced_string[i] == ':') {
+				if (temp.length() > 0)
+					token_list.push_back(temp);
+				temp.clear();
+				token_list.push_back(":");
+				i++;
+				while (i < deduced_string.length() && deduced_string[i] != '/' && deduced_string[i] != '@' && deduced_string[i] != '|' && deduced_string[i] != ':') {
+					temp.push_back(deduced_string[i]);
+					i++;
+				}
+				token_list.push_back(temp);
+				temp.clear();
+				i--;
+			}
+			else
+				temp.push_back(deduced_string[i]);
+		}
+		if (temp.length() > 0)
+			token_list.push_back(temp);
+		for (int i = 0; i < token_list.size(); i++) {
+			if (i == 0) {
+				string temp = token_list[i];
+				if (temp[0] == 'r' && stoi(temp.substr(1)) > 0);
+				else {
+					temp.insert(0, "[");
+					temp.push_back(']');
+				}
+				base = deduce_runtime_variable(temp, true);
+			}
+			else if (token_list[i] == "@") {
+				if (i + 1 >= token_list.size() || base == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
+					if (token_list[i + 1] == "size") {
+						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_list_tuple().size(), -1, "", false,
+							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
+						instruction_list.push_back(created_int);
 						base = instruction_list[instruction_list.size() - 1];
 						runtime_temporary_count++;
 					}
-					else if (base->get_type_information() == type_information_list::_string) {
-						if (start->get_integer() < 0 || start->get_integer() >= base->get_string().length())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
-						else if (end->get_integer() < 0 || end->get_integer() > base->get_string().length() || end->get_integer() <= start->get_integer())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
-						else if (step->get_integer() < 0 || step->get_integer() >= base->get_string().length())
-							report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
-						string s;
-						for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
-							s.push_back(base->get_string()[i]);
-						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, s, false,
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
+				}
+				else if (base->get_type_information() == type_information_list::_dict)
+					report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
+				else if (base->get_type_information() == type_information_list::_string) {
+					if (token_list[i + 1] == "size") {
+						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_string().length(), -1, "", false,
+							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
+						instruction_list.push_back(created_int);
+						base = instruction_list[instruction_list.size() - 1];
+						runtime_temporary_count++;
+					}
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
+				}
+				else
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+			}
+			else if (token_list[i] == "|") {
+				if (i + 1 >= token_list.size() || base == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				string temp = token_list[i + 1];
+				if (temp[0] == 'r' && stoi(temp.substr(1)) > 0);
+				else {
+					temp.insert(0, "[");
+					temp.push_back(']');
+				}
+				shared_ptr<runtime_variable> rvar = deduce_runtime_variable(temp, true);
+				if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
+					if (rvar->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
+					if (rvar->get_integer() >= 0 && rvar->get_integer() < base->get_list_tuple().size())
+						base = base->get_list_tuple()[rvar->get_integer()];
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, rvar);
+				}
+				else if (base->get_type_information() == type_information_list::_string) {
+					if (rvar->get_type_information() == type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
+					if (rvar->get_integer() >= 0 && rvar->get_integer() < base->get_string().length()) {
+						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, string(1, base->get_string()[rvar->get_integer()]), false,
 							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_string);
 						instruction_list.push_back(created_string);
 						base = instruction_list[instruction_list.size() - 1];
 						runtime_temporary_count++;
 					}
 					else
-						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
-					if (unmod)
-						base->set_unmodifiable(true);
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, rvar);
 				}
-				temp.clear();
+				else if (base->get_type_information() == type_information_list::_dict) {
+					if (base->get_dict().first.size() != base->get_dict().first.size())
+						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, base);
+					if (base->get_dict().first.size() == 0)
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, base);
+					vector<shared_ptr<runtime_variable>> key_list = base->get_dict().first;
+					if (rvar->get_type_information() == key_list[0]->get_type_information());
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
+					int index = -1;
+					for (int i = 0; i < key_list.size(); i++)
+						if (equals_equals(rvar, key_list[i])) {
+							index = i;
+							break;
+						}
+					if (index == -1)
+						report_error_and_terminate_program(runtime_diagnostic_messages::key_not_found, rvar);
+					base = base->get_dict().second[index];
+				}
+				else
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
 			}
-			else if (i != deduced_string.length() - 1)
-				temp.push_back(deduced_string[i]);
+			else if (token_list[i] == "/") {
+				if (i + 1 >= token_list.size() || base == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				vector<string> start_end_step;
+				string temp = token_list[i + 1];
+				string buf;
+				stringstream ss(temp);
+				while (getline(ss, buf, '/'))
+					start_end_step.push_back(buf);
+				if (start_end_step.size() != 3)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				vector<string> start_end_step_final;
+				for (int i = 0; i < start_end_step.size(); i++) {
+					string s = start_end_step[i];
+					if (s[0] == 'r' && stoi(s.substr(1)) > 0);
+					else {
+						s.insert(0, "[");
+						s.push_back(']');
+					}
+					start_end_step_final.push_back(s);
+				}
+				shared_ptr<runtime_variable> start = deduce_runtime_variable(start_end_step_final[0], true);
+				shared_ptr<runtime_variable> end = deduce_runtime_variable(start_end_step_final[1], true);
+				shared_ptr<runtime_variable> step = deduce_runtime_variable(start_end_step_final[2], true);
+				if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
+					if (start->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, start);
+					else if (end->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, end);
+					else if (step->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, step);
+					if (start->get_integer() >= 0 && start->get_integer() < base->get_list_tuple().size());
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
+					if (end->get_integer() > start->get_integer() && end->get_integer() <= base->get_list_tuple().size());
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+					if (step->get_integer() > 0);
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
+					shared_ptr<runtime_variable> created_list_tuple = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
+						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), base->get_type_information());
+					vector<shared_ptr<runtime_variable>> vec;
+					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
+						vec.push_back(base->get_list_tuple()[i]);
+					created_list_tuple->set_list_tuple(vec);
+					instruction_list.push_back(created_list_tuple);
+					base = instruction_list[instruction_list.size() - 1];
+					runtime_temporary_count++;
+				}
+				else if (base->get_type_information() == type_information_list::_string) {
+					if (start->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, start);
+					else if (end->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, end);
+					else if (step->get_type_information() != type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, step);
+					if (start->get_integer() >= 0 && start->get_integer() < base->get_string().length());
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
+					if (end->get_integer() > start->get_integer() && end->get_integer() >= base->get_string().length());
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+					if (step->get_integer() > 0);
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
+					shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
+						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), base->get_type_information());
+					string s;
+					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
+						s.push_back(base->get_string()[i]);
+					created_string->set_string(s);
+					instruction_list.push_back(created_string);
+					base = instruction_list[instruction_list.size() - 1];
+					runtime_temporary_count++;
+				}
+			}
+			else if (token_list[i] == ":") {
+				if (base == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				if (base->get_type_information() != type_information_list::_func)
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+				if (i + 1 >= token_list.size() || base == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				string temp = token_list[i + 1];
+				vector<string> arg_list_temp;
+				string buf;
+				stringstream ss(temp);
+				while (getline(ss, buf, ','))
+					arg_list_temp.push_back(buf);
+				vector<string> arg_list;
+				for (int i = 0; i < arg_list_temp.size(); i++) {
+					string tmp = arg_list_temp[i];
+					if (tmp[0] == 'r' && stoi(tmp.substr(1)) > 0);
+					else {
+						tmp.insert(0, "[");
+						tmp.push_back(']');
+					}
+					arg_list.push_back(tmp);
+				}
+				vector<shared_ptr<runtime_variable>> rvar_arg_list;
+				for (int i = 0; i < arg_list.size(); i++)
+					rvar_arg_list.push_back(deduce_runtime_variable(arg_list[i], true));
+				string fname = base->get_string();
+				shared_ptr<runtime_variable> fvar = nullptr;
+				for (int i = 0; i < instruction_list.size(); i++) {
+					shared_ptr<runtime_variable> rvar = instruction_list[i];
+					if (rvar->get_type_information() == type_information_list::_func && rvar->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
+						rvar->get_storage_field().get_identifier() == fname) {
+						fvar = rvar;
+						break;
+					}
+				}
+				if (fvar == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::function_overload_not_found, base);
+				shared_ptr<function> func = nullptr;
+				for (int i = 0; i < function_list.size(); i++) {
+					if (function_list[i]->get_function_argument_list().size() == rvar_arg_list.size()) {
+						func = function_list[i];
+						break;
+					}
+				}
+				if (func == nullptr)
+					report_error_and_terminate_program(runtime_diagnostic_messages::function_overload_not_found, fvar);
+				base = run_function(func, fvar, rvar_arg_list);
+			}
 		}
 		return base;
 	}
@@ -1974,16 +1985,19 @@ namespace dharma_vm {
 		return ret;
 	}
 
-	runtime::runtime(vector<string> vec) {
+	runtime::runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl) {
 		string_instruction_list = vec;
 		runtime_temporary_count = 0;
+		function_list = fl;
+		instruction_list = il;
 	}
 
 	runtime::~runtime() {
 
 	}
 
-	bool runtime::run_program() {
+	shared_ptr<runtime_variable> runtime::run_program() {
+		function_pass();
 		vector<vector<string>> insn_list;
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> temp = parse_instruction(string_instruction_list[i]);
@@ -2357,7 +2371,11 @@ namespace dharma_vm {
 			dump_runtime_variables(instruction_list);
 			cout << '\n';
 		}
-		return true;
+		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_boolean);
+		instruction_list.push_back(created_bool);
+		runtime_temporary_count++;
+		return instruction_list[instruction_list.size() - 1];
 	}
 
 	bool runtime::dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list) {
@@ -2395,6 +2413,8 @@ namespace dharma_vm {
 				cout << "String: " << rvar->get_string();
 			else if (rvar->get_type_information() == type_information_list::_boolean)
 				cout << "Boolean: " << rvar->get_boolean();
+			else if (rvar->get_type_information() == type_information_list::_func)
+				cout << "Function: " << rvar->get_string();
 			else if (rvar->get_type_information() == type_information_list::_pure_int)
 				cout << "[Int]";
 			else if (rvar->get_type_information() == type_information_list::_pure_list)
@@ -2411,6 +2431,10 @@ namespace dharma_vm {
 				cout << "[String]";
 			else if (rvar->get_type_information() == type_information_list::_pure_boolean)
 				cout << "[Boolean]";
+			else if (rvar->get_type_information() == type_information_list::_pure_func)
+				cout << "[Function]";
+			else if (rvar->get_type_information() == type_information_list::bad)
+				cout << "Bad";
 			cout << '\n';
 		}
 		cout << "============\n";

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <tuple>
 #include <regex>
+#include <sstream>
 
 using std::cout;
 using std::string;
@@ -27,6 +28,8 @@ using std::stoi;
 using std::regex;
 using std::sregex_token_iterator;
 using std::find_if;
+using std::stringstream;
+using std::getline;
 
 namespace dharma_vm {
 
@@ -67,6 +70,8 @@ namespace dharma_vm {
 			const static string list;
 			const static string tupl;
 			const static string dict;
+			const static string func;
+			const static string efunc;
 	};
 
 	class type_information_list {
@@ -88,10 +93,12 @@ namespace dharma_vm {
 			const static type_information _pure_nil;
 			const static type_information _nil;
 			const static type_information bad;
+			const static type_information _func;
+			const static type_information _pure_func;
 	};
 
 	enum type_kind {
-		TYPE_INT, TYPE_DECIMAL, TYPE_BOOLEAN, TYPE_STRING, TYPE_LIST, TYPE_TUPLE, TYPE_DICT, TYPE_NIL, TYPE_NONE
+		TYPE_INT, TYPE_DECIMAL, TYPE_BOOLEAN, TYPE_STRING, TYPE_LIST, TYPE_TUPLE, TYPE_DICT, TYPE_NIL, TYPE_FUNC, TYPE_NONE
 	};
 
 	enum type_pure_kind {
@@ -208,6 +215,7 @@ namespace dharma_vm {
 			const static string unmodifiable_value;
 			const static string key_not_found;
 			const static string field_not_found;
+			const static string function_overload_not_found;
 	};
 
 	const vector<string> list_field_list = { "size" };
@@ -219,8 +227,23 @@ namespace dharma_vm {
 		REGISTER_IDENTIFIER_REGISTER, REGISTER_IDENTIFIER_IDENTIFIER, REGISTER_IDENTIFIER_COMPLEX, REGISTER_IDENTIFIER_LITERAL, REGISTER_IDENTIFIER_NONE
 	};
 
+	class function {
+		string function_name;
+		vector<string> function_code;
+		vector<string> function_argument_list;
+		shared_ptr<runtime_variable> function_variable;
+		public:
+			function(string fn, vector<string> fc, vector<string> fal, shared_ptr<runtime_variable> fv);
+			~function();
+			string get_function_name();
+			vector<string> get_function_code();
+			vector<string> get_function_argument_list();
+			shared_ptr<runtime_variable> get_function_variable();
+	};
+
 	class runtime {
 		vector<shared_ptr<runtime_variable>> instruction_list;
+		vector<shared_ptr<function>> function_list;
 		vector<string> string_instruction_list;
 		const static string runtime_temporary_prefix;
 		int runtime_temporary_count;
@@ -230,10 +253,12 @@ namespace dharma_vm {
 		pair<shared_ptr<runtime_variable>, bool> find_instruction(int reg);
 		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
 		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist);
+		const bool function_pass();
+		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
 		public:
-			runtime(vector<string> vec);
+			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl);
 			~runtime();
-			bool run_program();
+			shared_ptr<runtime_variable> run_program();
 			bool dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list);
 	};
 }
