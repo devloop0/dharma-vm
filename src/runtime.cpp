@@ -37,6 +37,13 @@ namespace dharma_vm {
 	const string vm_instruction_list::dict = "dict";
 	const string vm_instruction_list::func = "func";
 	const string vm_instruction_list::efunc = "efunc";
+	const string vm_instruction_list::struc = "struc";
+	const string vm_instruction_list::estruc = "estruc";
+	const string vm_instruction_list::istruc = "istruc";
+	const string vm_instruction_list::module = "module";
+	const string vm_instruction_list::imodule = "imodule";
+	const string vm_instruction_list::emodule = "emodule";
+	const string vm_instruction_list::imov = "imov";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -48,6 +55,7 @@ namespace dharma_vm {
 	const string runtime_diagnostic_messages::key_not_found = "Key not found.";
 	const string runtime_diagnostic_messages::field_not_found = "Field not found.";
 	const string runtime_diagnostic_messages::function_overload_not_found = "Function overload not found.";
+	const string runtime_diagnostic_messages::structure_members_are_initialized_early = "Structure members are initialized early, and variable execution is not completed during structure initialization.";
 
 	type_information::type_information(type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn) {
 		t_kind = tk;
@@ -77,14 +85,15 @@ namespace dharma_vm {
 	}
 
 	const bool type_information::operator==(type_information ti) {
-		return (t_kind == ti.t_kind && tc_kind == ti.tc_kind && tp_kind == ti.tp_kind);
+		return (t_kind == ti.t_kind && tc_kind == ti.tc_kind && tp_kind == ti.tp_kind && class_name == ti.class_name);
 	}
 
 	const bool type_information::operator!=(type_information ti) {
 		return !(*this == ti);
 	}
 
-	runtime_variable::runtime_variable(storage_field sf, int i, float d, string s, bool b, vector<shared_ptr<runtime_variable>> lt, pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> di, type_information ti) : t_inf(ti), s_field(sf) {
+	runtime_variable::runtime_variable(storage_field sf, int i, float d, string s, bool b, vector<shared_ptr<runtime_variable>> lt, pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> di,
+		vector<shared_ptr<runtime_variable>> sml, shared_ptr<runtime> mr, type_information ti) : t_inf(ti), s_field(sf) {
 		integer = i;
 		decimal = d;
 		str = s;
@@ -92,6 +101,8 @@ namespace dharma_vm {
 		list_tuple = lt;
 		dict = di;
 		unmodifiable = false;
+		struct_member_list = sml;
+		module_runtime = mr;
 	}
 
 	runtime_variable::~runtime_variable() {
@@ -119,12 +130,22 @@ namespace dharma_vm {
 	}
 
 	vector<shared_ptr<runtime_variable>> runtime_variable::set_list_tuple(vector<shared_ptr<runtime_variable>> lt) {
-		list_tuple = lt;
+		list_tuple.clear();
+		for (int i = 0; i < lt.size(); i++)
+			list_tuple.push_back(make_shared<runtime_variable>(lt[i]->get_storage_field(), lt[i]->get_integer(), lt[i]->get_decimal(), lt[i]->get_string(), lt[i]->get_boolean(),
+				lt[i]->get_list_tuple(), lt[i]->get_dict(), lt[i]->get_struct_member_list(), lt[i]->get_module_runtime(), lt[i]->get_type_information()));
 		return list_tuple;
 	}
 
 	pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> runtime_variable::set_dict(pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> d) {
-		dict = d;
+		dict.first.clear();
+		dict.second.clear();
+		for (int i = 0; i < d.first.size(); i++)
+			dict.first.push_back(make_shared<runtime_variable>(d.first[i]->get_storage_field(), d.first[i]->get_integer(), d.first[i]->get_decimal(), d.first[i]->get_string(), d.first[i]->get_boolean(),
+				d.first[i]->get_list_tuple(), d.first[i]->get_dict(), d.first[i]->get_struct_member_list(), d.first[i]->get_module_runtime(), d.first[i]->get_type_information()));
+		for (int i = 0; i < d.second.size(); i++)
+			dict.second.push_back(make_shared<runtime_variable>(d.second[i]->get_storage_field(), d.second[i]->get_integer(), d.second[i]->get_decimal(), d.second[i]->get_string(), d.second[i]->get_boolean(),
+				d.second[i]->get_list_tuple(), d.second[i]->get_dict(), d.second[i]->get_struct_member_list(), d.second[i]->get_module_runtime(), d.second[i]->get_type_information()));
 		return dict;
 	}
 
@@ -174,6 +195,28 @@ namespace dharma_vm {
 		return unmodifiable;
 	}
 
+	vector<shared_ptr<runtime_variable>> runtime_variable::get_struct_member_list() {
+		return struct_member_list;
+	}
+
+	vector<shared_ptr<runtime_variable>> runtime_variable::set_struct_member_list(vector<shared_ptr<runtime_variable>> sml) {
+		struct_member_list.clear();
+		for (int i = 0; i < sml.size(); i++)
+			struct_member_list.push_back(make_shared<runtime_variable>(sml[i]->get_storage_field(), sml[i]->get_integer(), sml[i]->get_decimal(), sml[i]->get_string(), sml[i]->get_boolean(),
+				sml[i]->get_list_tuple(), sml[i]->get_dict(), sml[i]->get_struct_member_list(), sml[i]->get_module_runtime(), sml[i]->get_type_information()));
+		return struct_member_list;
+	}
+
+	shared_ptr<runtime> runtime_variable::get_module_runtime() {
+		return module_runtime;
+	}
+
+	shared_ptr<runtime> runtime_variable::set_module_runtime(shared_ptr<runtime> mr) {
+		module_runtime->set_instruction_list(mr->get_instruction_list());
+		module_runtime->set_function_list(mr->get_function_list());
+		return module_runtime;
+	}
+
 	storage_field::storage_field(int rn, string i, storage_field_kind sfk) {
 		register_number = rn;
 		identifier = i;
@@ -199,8 +242,10 @@ namespace dharma_vm {
 	bool report_error_and_terminate_program(string msg, shared_ptr<runtime_variable> rvar) {
 		cerr << "Error: " << msg << '\n';
 		string ident;
-		if (rvar == nullptr)
+		if (rvar == nullptr) {
+			cerr << runtime_diagnostic_messages::structure_members_are_initialized_early << '\n';
 			exit(1);
+		}
 		if (rvar->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
 			ident = rvar->get_storage_field().get_identifier();
 		else
@@ -238,9 +283,18 @@ namespace dharma_vm {
 			cerr << "Nil";
 		else if (rvar->get_type_information() == type_information_list::_pure_nil)
 			cerr << "[Nil]";
+		else if (rvar->get_type_information() == type_information_list::_func)
+			cerr << "Function";
+		else if (rvar->get_type_information() == type_information_list::_pure_func)
+			cerr << "[Function]";
+		else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO)
+			cerr << rvar->get_type_information().get_class_name();
+		else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES)
+			cerr << '[' << rvar->get_type_information().get_class_name() << ']';
 		else if (rvar->get_type_information() == type_information_list::bad)
 			cerr << "**Error**";
-		cerr << ".'";
+		cerr << ".'\n";
+		cerr << runtime_diagnostic_messages::structure_members_are_initialized_early << '\n';
 		exit(1);
 		return true;
 	}
@@ -876,6 +930,53 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			string dest_class_name = dest->get_type_information().get_class_name();
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				string src_class_name = src->get_type_information().get_class_name();
+				if (dest_class_name != src_class_name)
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+				dest->set_boolean(equals_equals(dest, src));
+				dest->set_type_information(type_information_list::_boolean);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				if (dest->get_type_information().get_class_name() != src->get_type_information().get_class_name()) {
+					dest->set_boolean(false);
+					dest->set_type_information(type_information_list::_boolean);
+					return dest;
+				}
+				vector<shared_ptr<runtime_variable>> dsource = dest->get_module_runtime()->get_instruction_list();
+				vector<shared_ptr<runtime_variable>> ssource = src->get_module_runtime()->get_instruction_list();
+				if (dsource.size() != ssource.size()) {
+					dest->set_boolean(false);
+					dest->set_type_information(type_information_list::_boolean);
+					return dest;
+				}
+				for (int i = 0; i < dsource.size(); i++) {
+					shared_ptr<runtime_variable> lhs = dsource[i];
+					shared_ptr<runtime_variable> rhs = ssource[i];
+					if (!equals_equals(lhs, rhs)) {
+						dest->set_boolean(false);
+						dest->set_type_information(type_information_list::_boolean);
+						return dest;
+					}
+				}
+				dest->set_boolean(true);
+				dest->set_type_information(type_information_list::_boolean);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
 		else if (dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
 			src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
 			dest->set_boolean(dest->get_type_information() == src->get_type_information());
@@ -1085,6 +1186,14 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
+		else if (type_two.get_type_kind() == type_kind::TYPE_CUSTOM && type_two.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
+			type_two.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			if (type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES && type_one.get_class_name() == type_two.get_class_name()))
+				return dest;
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
@@ -1135,35 +1244,63 @@ namespace dharma_vm {
 			dest->set_type_information(type_information_list::_func);
 			return dest;
 		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			dest->set_struct_member_list(src->get_struct_member_list());
+			dest->set_type_information(src->get_type_information());
+			return dest;
+		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			dest->set_module_runtime(src->get_module_runtime());
+			dest->set_type_information(src->get_type_information());
+			return dest;
+		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			dest->set_struct_member_list(src->get_struct_member_list());
+			dest->set_type_information(src->get_type_information());
+			return dest;
+		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			dest->set_module_runtime(src->get_module_runtime());
+			dest->set_type_information(src->get_type_information());
+			return dest;
+		}
 		else if (src->get_type_information() == type_information_list::_pure_int) {
+			dest->set_integer(src->get_integer());
 			dest->set_type_information(type_information_list::_pure_int);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_decimal) {
+			dest->set_decimal(src->get_decimal());
 			dest->set_type_information(type_information_list::_pure_decimal);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_string) {
+			dest->set_string(src->get_string());
 			dest->set_type_information(type_information_list::_pure_string);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_boolean) {
+			dest->set_boolean(src->get_boolean());
 			dest->set_type_information(type_information_list::_pure_boolean);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_list) {
+			dest->set_list_tuple(src->get_list_tuple());
 			dest->set_type_information(type_information_list::_pure_list);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_tuple) {
+			dest->set_list_tuple(src->get_list_tuple());
 			dest->set_type_information(type_information_list::_pure_tuple);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_dict) {
+			dest->set_dict(src->get_dict());
 			dest->set_type_information(type_information_list::_pure_dict);
 			return dest;
 		}
 		else if (src->get_type_information() == type_information_list::_pure_func) {
+			dest->set_string(src->get_string());
 			dest->set_type_information(type_information_list::_pure_func);
 			return dest;
 		}
@@ -1316,8 +1453,27 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
+		else if (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			if (type_two == type_one) {
+				dest->set_struct_member_list(src->get_struct_member_list());
+				dest->set_type_information(src->get_type_information());
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_one.get_type_kind() == type_kind::TYPE_MODULE && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			if (type_two == type_one) {
+				dest->set_module_runtime(src->get_module_runtime());
+				dest->set_type_information(src->get_type_information());
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
 		else if (type_one == type_information_list::_pure_int) {
 			if (type_two == type_information_list::_pure_int) {
+				dest->set_integer(src->get_integer());
 				dest->set_type_information(type_information_list::_pure_int);
 				return dest;
 			}
@@ -1330,6 +1486,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_func) {
 			if (type_two == type_information_list::_pure_func) {
+				dest->set_string(src->get_string());
 				dest->set_type_information(type_information_list::_pure_func);
 				return dest;
 			}
@@ -1342,6 +1499,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_decimal) {
 			if (type_two == type_information_list::_pure_decimal) {
+				dest->set_decimal(src->get_decimal());
 				dest->set_type_information(type_information_list::_pure_decimal);
 				return dest;
 			}
@@ -1354,6 +1512,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_string) {
 			if (type_two == type_information_list::_pure_string) {
+				dest->set_string(src->get_string());
 				dest->set_type_information(type_information_list::_pure_string);
 				return dest;
 			}
@@ -1366,6 +1525,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_boolean) {
 			if (type_two == type_information_list::_pure_boolean) {
+				dest->set_boolean(src->get_boolean());
 				dest->set_type_information(type_information_list::_pure_boolean);
 				return dest;
 			}
@@ -1378,6 +1538,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_list) {
 			if (type_two == type_information_list::_pure_list) {
+				dest->set_list_tuple(src->get_list_tuple());
 				dest->set_type_information(type_information_list::_pure_list);
 				return dest;
 			}
@@ -1390,6 +1551,7 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_tuple) {
 			if (type_two == type_information_list::_pure_tuple) {
+				dest->set_list_tuple(src->get_list_tuple());
 				dest->set_type_information(type_information_list::_pure_tuple);
 				return dest;
 			}
@@ -1402,11 +1564,30 @@ namespace dharma_vm {
 		}
 		else if (type_one == type_information_list::_pure_dict) {
 			if (type_two == type_information_list::_pure_dict) {
+				dest->set_dict(src->get_dict());
 				dest->set_type_information(type_information_list::_pure_dict);
 				return dest;
 			}
 			else if (type_two == type_information_list::_pure_nil) {
 				dest->set_type_information(type_information_list::_pure_nil);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			if (type_one == type_two) {
+				dest->set_struct_member_list(src->get_struct_member_list());
+				dest->set_type_information(src->get_type_information());
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_one.get_type_kind() == type_kind::TYPE_MODULE && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			if (type_one == type_two) {
+				dest->set_module_runtime(src->get_module_runtime());
+				dest->set_type_information(src->get_type_information());
 				return dest;
 			}
 			else
@@ -1543,6 +1724,51 @@ namespace dharma_vm {
 			else
 				return false;
 		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			string dest_class_name = dest->get_type_information().get_class_name();
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				string src_class_name = src->get_type_information().get_class_name();
+				if (dest_class_name != src_class_name)
+					return false;
+				if (dest->get_struct_member_list().size() != src->get_struct_member_list().size())
+					return false;
+				vector<shared_ptr<runtime_variable>> dest_list = dest->get_struct_member_list();
+				vector<shared_ptr<runtime_variable>> src_list = src->get_struct_member_list();
+				for (int i = 0; i < dest_list.size(); i++) {
+					shared_ptr<runtime_variable> dvar = dest_list[i];
+					shared_ptr<runtime_variable> svar = src_list[i];
+					bool store = equals_equals(dvar, svar);
+					if (!store)
+						return false;
+				}
+				return true;
+			}
+			else
+				return false;
+		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				if (dest->get_type_information().get_class_name() != src->get_type_information().get_class_name())
+					return false;
+				vector<shared_ptr<runtime_variable>> dsource = dest->get_module_runtime()->get_instruction_list();
+				vector<shared_ptr<runtime_variable>> ssource = src->get_module_runtime()->get_instruction_list();
+				if (dsource.size() != ssource.size())
+					return false;
+				for (int i = 0; i < dsource.size(); i++) {
+					shared_ptr<runtime_variable> dvar = dsource[i];
+					shared_ptr<runtime_variable> svar = ssource[i];
+					if (!equals_equals(dvar, svar))
+						return false;
+				}
+				return true;
+			}
+			else
+				return false;
+		}
 		else if (dest->get_type_information() == src->get_type_information())
 			return true;
 		else
@@ -1553,6 +1779,9 @@ namespace dharma_vm {
 	const bool not_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src) {
 		return !equals_equals(dest, src);
 	}
+
+	const string builtins::builtin__va_args__ = "__va_args__";
+	const string builtins::va_args_function_parameter = "_";
 
 	tuple<string, register_identifier_kind, type_kind> runtime::deduce_register_identifier_kind(string ident) {
 		string temp = ident;
@@ -1601,6 +1830,12 @@ namespace dharma_vm {
 		tuple<string, register_identifier_kind, type_kind> deduced_tuple = deduce_register_identifier_kind(ident);
 		string deduced_string = get<0>(deduced_tuple);
 		register_identifier_kind deduced_ri_kind = get<1>(deduced_tuple);
+		auto temp_check_if_string_is_integer = [](string str) {
+			for (int i = 0; i < str.length(); i++)
+				if (!isdigit(str[i]))
+				return false;
+			return true;
+		};
 		if (deduced_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_REGISTER) {
 			pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(stoi(deduced_string));
 			if (!pai.second) {
@@ -1609,7 +1844,8 @@ namespace dharma_vm {
 				}
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(stoi(deduced_string), "", storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER), -1, -1, "",
-						false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::bad);
+						false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(),  vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()),
+						type_information_list::bad);
 					instruction_list.push_back(temp);
 					return instruction_list[instruction_list.size() - 1];
 				}
@@ -1624,7 +1860,7 @@ namespace dharma_vm {
 					report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(-1, deduced_string, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
-						pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::bad);
+						pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::bad);
 					instruction_list.push_back(temp);
 					return instruction_list[instruction_list.size() - 1];
 				}
@@ -1696,7 +1932,7 @@ namespace dharma_vm {
 		for (int i = 0; i < token_list.size(); i++) {
 			if (i == 0) {
 				string temp = token_list[i];
-				if (temp[0] == 'r' && stoi(temp.substr(1)) > 0);
+				if (temp[0] == 'r' && temp_check_if_string_is_integer(temp.substr(1)));
 				else {
 					temp.insert(0, "[");
 					temp.push_back(']');
@@ -1706,10 +1942,11 @@ namespace dharma_vm {
 			else if (token_list[i] == "@") {
 				if (i + 1 >= token_list.size() || base == nullptr)
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+				bool base_immut = base->get_unmodifiable();
 				if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
 					if (token_list[i + 1] == "size") {
 						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_list_tuple().size(), -1, "", false,
-							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
+							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_int);
 						instruction_list.push_back(created_int);
 						base = instruction_list[instruction_list.size() - 1];
 						runtime_temporary_count++;
@@ -1722,7 +1959,7 @@ namespace dharma_vm {
 				else if (base->get_type_information() == type_information_list::_string) {
 					if (token_list[i + 1] == "size") {
 						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_string().length(), -1, "", false,
-							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_int);
+							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_int);
 						instruction_list.push_back(created_int);
 						base = instruction_list[instruction_list.size() - 1];
 						runtime_temporary_count++;
@@ -1730,18 +1967,44 @@ namespace dharma_vm {
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
 				}
+				else if (base->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && base->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+					base->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+					shared_ptr<runtime_variable> rvar = nullptr;
+					string to_find = token_list[i + 1];
+					for (int i = 0; i < base->get_struct_member_list().size(); i++)
+						if (base->get_struct_member_list()[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
+							base->get_struct_member_list()[i]->get_storage_field().get_identifier() == to_find) {
+							rvar = base->get_struct_member_list()[i];
+							break;
+						}
+					if (rvar == nullptr)
+						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
+					base = rvar;
+				}
+				else if (base->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && base->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+					base->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+					shared_ptr<runtime_variable> rvar = nullptr;
+					string to_find = token_list[i + 1];
+					pair<shared_ptr<runtime_variable>, bool> pai = base->get_module_runtime()->find_instruction(to_find);
+					if (!pai.second)
+						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
+					base = pai.first;
+				}
 				else
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+				if (base_immut)
+					base->set_unmodifiable(true);
 			}
 			else if (token_list[i] == "|") {
 				if (i + 1 >= token_list.size() || base == nullptr)
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 				string temp = token_list[i + 1];
-				if (temp[0] == 'r' && stoi(temp.substr(1)) > 0);
+				if (temp[0] == 'r' && temp_check_if_string_is_integer(temp.substr(1)));
 				else {
 					temp.insert(0, "[");
 					temp.push_back(']');
 				}
+				bool base_immut = base->get_unmodifiable();
 				shared_ptr<runtime_variable> rvar = deduce_runtime_variable(temp, true);
 				if (base->get_type_information() == type_information_list::_list || base->get_type_information() == type_information_list::_tuple) {
 					if (rvar->get_type_information() != type_information_list::_int)
@@ -1756,7 +2019,7 @@ namespace dharma_vm {
 						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 					if (rvar->get_integer() >= 0 && rvar->get_integer() < base->get_string().length()) {
 						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, string(1, base->get_string()[rvar->get_integer()]), false,
-							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_string);
+							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_string);
 						instruction_list.push_back(created_string);
 						base = instruction_list[instruction_list.size() - 1];
 						runtime_temporary_count++;
@@ -1785,6 +2048,8 @@ namespace dharma_vm {
 				}
 				else
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+				if (base_immut)
+					base->set_unmodifiable(true);
 			}
 			else if (token_list[i] == "/") {
 				if (i + 1 >= token_list.size() || base == nullptr)
@@ -1800,7 +2065,7 @@ namespace dharma_vm {
 				vector<string> start_end_step_final;
 				for (int i = 0; i < start_end_step.size(); i++) {
 					string s = start_end_step[i];
-					if (s[0] == 'r' && stoi(s.substr(1)) > 0);
+					if (s[0] == 'r' && temp_check_if_string_is_integer(s.substr(1)));
 					else {
 						s.insert(0, "[");
 						s.push_back(']');
@@ -1827,7 +2092,7 @@ namespace dharma_vm {
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
 					shared_ptr<runtime_variable> created_list_tuple = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
-						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), base->get_type_information());
+						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), base->get_type_information());
 					vector<shared_ptr<runtime_variable>> vec;
 					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
 						vec.push_back(base->get_list_tuple()[i]);
@@ -1853,7 +2118,7 @@ namespace dharma_vm {
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
 					shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
-						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), base->get_type_information());
+						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), base->get_type_information());
 					string s;
 					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
 						s.push_back(base->get_string()[i]);
@@ -1868,7 +2133,7 @@ namespace dharma_vm {
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 				if (base->get_type_information() != type_information_list::_func)
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
-				if (i + 1 >= token_list.size() || base == nullptr)
+				if (i + 1 >= token_list.size())
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 				string temp = token_list[i + 1];
 				vector<string> arg_list_temp;
@@ -1879,7 +2144,7 @@ namespace dharma_vm {
 				vector<string> arg_list;
 				for (int i = 0; i < arg_list_temp.size(); i++) {
 					string tmp = arg_list_temp[i];
-					if (tmp[0] == 'r' && stoi(tmp.substr(1)) > 0);
+					if (tmp[0] == 'r' && temp_check_if_string_is_integer(tmp.substr(1)));
 					else {
 						tmp.insert(0, "[");
 						tmp.push_back(']');
@@ -1890,27 +2155,29 @@ namespace dharma_vm {
 				for (int i = 0; i < arg_list.size(); i++)
 					rvar_arg_list.push_back(deduce_runtime_variable(arg_list[i], true));
 				string fname = base->get_string();
-				shared_ptr<runtime_variable> fvar = nullptr;
-				for (int i = 0; i < instruction_list.size(); i++) {
-					shared_ptr<runtime_variable> rvar = instruction_list[i];
-					if (rvar->get_type_information() == type_information_list::_func && rvar->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
-						rvar->get_storage_field().get_identifier() == fname) {
-						fvar = rvar;
-						break;
-					}
-				}
-				if (fvar == nullptr)
-					report_error_and_terminate_program(runtime_diagnostic_messages::function_overload_not_found, base);
 				shared_ptr<function> func = nullptr;
 				for (int i = 0; i < function_list.size(); i++) {
-					if (function_list[i]->get_function_argument_list().size() == rvar_arg_list.size()) {
+					if (function_list[i]->get_function_argument_list().size() == rvar_arg_list.size() &&
+						function_list[i]->get_function_name() == base->get_string()) {
 						func = function_list[i];
 						break;
 					}
+					else if (function_list[i]->get_function_name() == base->get_string()) {
+						bool va_args = function_list[i]->get_va_args();
+						int actual_args = rvar_arg_list.size();
+						int lookup_args = function_list[i]->get_function_argument_list().size();
+						if (!va_args);
+						else {
+							if (actual_args >= lookup_args) {
+								func = function_list[i];
+								break;
+							}
+						}
+					}
 				}
 				if (func == nullptr)
-					report_error_and_terminate_program(runtime_diagnostic_messages::function_overload_not_found, fvar);
-				base = run_function(func, fvar, rvar_arg_list);
+					report_error_and_terminate_program(runtime_diagnostic_messages::function_overload_not_found, base);
+				base = run_function(func, base, rvar_arg_list);
 			}
 		}
 		return base;
@@ -2002,6 +2269,7 @@ namespace dharma_vm {
 
 	shared_ptr<runtime_variable> runtime::run_program() {
 		function_pass();
+		struct_pass();
 		vector<vector<string>> insn_list;
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> temp = parse_instruction(string_instruction_list[i]);
@@ -2215,6 +2483,51 @@ namespace dharma_vm {
 				dest->set_dict(make_pair(key_list, value_list));
 				dest->set_type_information(type_information_list::_dict);
 			}
+			else if (temp[0] == vm_instruction_list::module || temp[0] == vm_instruction_list::imodule) {
+				if (temp.size() != 2)
+					report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, nullptr);
+				string m = temp[1];
+				bool immut = temp[0] == vm_instruction_list::imodule;
+				insn_list.erase(insn_list.begin() + i, insn_list.begin() + i + 1);
+				vector<string> module_code;
+				int emodule_count = 0;
+				while (i < insn_list.size()) {
+					if (insn_list[i].size() > 0 && insn_list[i][0] == vm_instruction_list::module)
+						emodule_count++;
+					if (insn_list[i].size() > 0 && insn_list[i][0] == vm_instruction_list::emodule) {
+						if (emodule_count == 0)
+							break;
+						else {
+							string code;
+							for (int j = 0; j < insn_list[i].size(); j++)
+								code += insn_list[i][j] + (j == insn_list[i].size() - 1 ? "" : " ");
+							module_code.push_back(code);
+							emodule_count--;
+						}
+					}
+					else {
+						string code;
+						for (int j = 0; j < insn_list[i].size(); j++)
+							code += insn_list[i][j] + (j == insn_list[i].size() - 1 ? "" : " ");
+						module_code.push_back(code);
+					}
+					insn_list.erase(insn_list.begin() + i, insn_list.begin() + i + 1);
+				}
+				insn_list.erase(insn_list.begin() + i, insn_list.begin() + i + 1);
+				i--;
+				int save = instruction_list.size();
+				int fsave = function_list.size();
+				runtime r(module_code, instruction_list, function_list);
+				r.run_program();
+				instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
+				function_list.erase(function_list.begin() + fsave, function_list.end());
+				type_information _module(type_kind::TYPE_MODULE, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, m);
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, m, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, m, false,
+					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+					make_shared<runtime>(r), _module);
+				rvar->set_unmodifiable(immut);
+				instruction_list.push_back(rvar);
+			}
 			else if (temp.size() == 2) {
 				string op = temp[0];
 				string d = temp[1];
@@ -2244,7 +2557,7 @@ namespace dharma_vm {
 				bool complex_test = get<1>(dtup) == register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX ||
 					(dest->get_type_information() != type_information_list::bad && dest->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER);
 				if (get<1>(tup) == register_identifier_kind::REGISTER_IDENTIFIER_LITERAL) {
-					if (op == vm_instruction_list::mov);
+					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov);
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, dest);
 					if (get<2>(tup) == type_kind::TYPE_DECIMAL) {
@@ -2319,16 +2632,18 @@ namespace dharma_vm {
 					}
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+					dest->set_unmodifiable(op == vm_instruction_list::imov);
 				}
 				else {
 					shared_ptr<runtime_variable> src = deduce_runtime_variable(s, true);
-					if (op == vm_instruction_list::mov) {
+					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov) {
 						if (get<1>(dtup) == register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX ||
 							(dest->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
 								dest->get_type_information() != type_information_list::bad))
 							dest = strict_mov(dest, src);
 						else
 							dest = mov(dest, src);
+						dest->set_unmodifiable(op == vm_instruction_list::imov);
 					}
 					else if (op == vm_instruction_list::add)
 						dest = dest + src;
@@ -2376,10 +2691,18 @@ namespace dharma_vm {
 			cout << '\n';
 		}
 		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
-			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), type_information_list::_boolean);
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_boolean);
 		instruction_list.push_back(created_bool);
 		runtime_temporary_count++;
 		return instruction_list[instruction_list.size() - 1];
+	}
+
+	vector<shared_ptr<runtime_variable>> runtime::get_instruction_list() {
+		return instruction_list;
+	}
+
+	vector<shared_ptr<function>> runtime::get_function_list() {
+		return function_list;
 	}
 
 	bool runtime::dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list) {
@@ -2419,6 +2742,16 @@ namespace dharma_vm {
 				cout << "Boolean: " << rvar->get_boolean();
 			else if (rvar->get_type_information() == type_information_list::_func)
 				cout << "Function: " << rvar->get_string();
+			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+				cout << rvar->get_type_information().get_class_name() << ": {\n";
+				dump_runtime_variables(rvar->get_struct_member_list());
+				cout << "}";
+			}
+			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+				cout << "Module " << rvar->get_type_information().get_class_name() << ": {\n";
+				dump_runtime_variables(rvar->get_module_runtime()->get_instruction_list());
+				cout << "}";
+			}
 			else if (rvar->get_type_information() == type_information_list::_pure_int)
 				cout << "[Int]";
 			else if (rvar->get_type_information() == type_information_list::_pure_list)
@@ -2439,9 +2772,29 @@ namespace dharma_vm {
 				cout << "[Function]";
 			else if (rvar->get_type_information() == type_information_list::bad)
 				cout << "Bad";
+			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES)
+				cout << "[" << rvar->get_type_information().get_class_name() << "]";
+			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES)
+				cout << "[Module]";
 			cout << '\n';
 		}
 		cout << "============\n";
 		return true;
+	}
+
+	vector<shared_ptr<runtime_variable>> runtime::set_instruction_list(vector<shared_ptr<runtime_variable>> insn_list) {
+		instruction_list.clear();
+		for (int i = 0; i < insn_list.size(); i++)
+			instruction_list.push_back(make_shared<runtime_variable>(insn_list[i]->get_storage_field(), insn_list[i]->get_integer(), insn_list[i]->get_decimal(), insn_list[i]->get_string(), insn_list[i]->get_boolean(),
+				insn_list[i]->get_list_tuple(), insn_list[i]->get_dict(), insn_list[i]->get_struct_member_list(), insn_list[i]->get_module_runtime(), insn_list[i]->get_type_information()));
+		return instruction_list;
+	}
+
+	vector<shared_ptr<function>> runtime::set_function_list(vector<shared_ptr<function>> fn_list) {
+		function_list.clear();
+		for (int i = 0; i < fn_list.size(); i++)
+			function_list.push_back(make_shared<function>(fn_list[i]->get_function_name(), fn_list[i]->get_function_code(), fn_list[i]->get_function_argument_list(),
+				fn_list[i]->get_function_variable(), fn_list[i]->get_va_args()));
+		return function_list;
 	}
 }
