@@ -77,6 +77,10 @@ namespace dharma_vm {
 		if (func->get_function_name() == fvar->get_string());
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, fvar);
+		if (func->get_function_name() == builtins::builtin_print) {
+			for (int i = 0; i < argument_list.size(); i++)
+				print(argument_list[i]);
+		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();
 		if (func->get_va_args()) {

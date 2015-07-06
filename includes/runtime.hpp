@@ -81,6 +81,7 @@ namespace dharma_vm {
 		const static string imodule;
 		const static string emodule;
 		const static string imov;
+		const static string ret;
 	};
 
 	class type_information_list {
@@ -264,6 +265,7 @@ namespace dharma_vm {
 		public:
 			const static string builtin__va_args__;
 			const static string va_args_function_parameter;
+			const static string builtin_print;
 	};
 
 	//Add builtins definitions for future use
@@ -283,6 +285,8 @@ namespace dharma_vm {
 		const bool function_pass();
 		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
 		const bool struct_pass();
+
+		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		public:
 			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl);
 			~runtime();

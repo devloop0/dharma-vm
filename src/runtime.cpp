@@ -44,6 +44,7 @@ namespace dharma_vm {
 	const string vm_instruction_list::imodule = "imodule";
 	const string vm_instruction_list::emodule = "emodule";
 	const string vm_instruction_list::imov = "imov";
+	const string vm_instruction_list::ret = "ret";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -103,6 +104,12 @@ namespace dharma_vm {
 		unmodifiable = false;
 		struct_member_list = sml;
 		module_runtime = mr;
+		for (int i = 0; i < str.length(); i++)
+			if (i + 1 < str.length() && str[i] == '\\' && str[i + 1] == 'n') {
+				str.erase(i, 2);
+				str.insert(i, "\n");
+				i--;
+			}
 	}
 
 	runtime_variable::~runtime_variable() {
@@ -131,21 +138,30 @@ namespace dharma_vm {
 
 	vector<shared_ptr<runtime_variable>> runtime_variable::set_list_tuple(vector<shared_ptr<runtime_variable>> lt) {
 		list_tuple.clear();
-		for (int i = 0; i < lt.size(); i++)
-			list_tuple.push_back(make_shared<runtime_variable>(lt[i]->get_storage_field(), lt[i]->get_integer(), lt[i]->get_decimal(), lt[i]->get_string(), lt[i]->get_boolean(),
-				lt[i]->get_list_tuple(), lt[i]->get_dict(), lt[i]->get_struct_member_list(), lt[i]->get_module_runtime(), lt[i]->get_type_information()));
+		for (int i = 0; i < lt.size(); i++) {
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(lt[i]->get_storage_field(), lt[i]->get_integer(), lt[i]->get_decimal(), lt[i]->get_string(), lt[i]->get_boolean(),
+				lt[i]->get_list_tuple(), lt[i]->get_dict(), lt[i]->get_struct_member_list(), lt[i]->get_module_runtime(), lt[i]->get_type_information());
+			rvar->set_unmodifiable(lt[i]->get_unmodifiable());
+			list_tuple.push_back(rvar);
+		}
 		return list_tuple;
 	}
 
 	pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> runtime_variable::set_dict(pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> d) {
 		dict.first.clear();
 		dict.second.clear();
-		for (int i = 0; i < d.first.size(); i++)
-			dict.first.push_back(make_shared<runtime_variable>(d.first[i]->get_storage_field(), d.first[i]->get_integer(), d.first[i]->get_decimal(), d.first[i]->get_string(), d.first[i]->get_boolean(),
-				d.first[i]->get_list_tuple(), d.first[i]->get_dict(), d.first[i]->get_struct_member_list(), d.first[i]->get_module_runtime(), d.first[i]->get_type_information()));
-		for (int i = 0; i < d.second.size(); i++)
-			dict.second.push_back(make_shared<runtime_variable>(d.second[i]->get_storage_field(), d.second[i]->get_integer(), d.second[i]->get_decimal(), d.second[i]->get_string(), d.second[i]->get_boolean(),
-				d.second[i]->get_list_tuple(), d.second[i]->get_dict(), d.second[i]->get_struct_member_list(), d.second[i]->get_module_runtime(), d.second[i]->get_type_information()));
+		for (int i = 0; i < d.first.size(); i++) {
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(d.first[i]->get_storage_field(), d.first[i]->get_integer(), d.first[i]->get_decimal(), d.first[i]->get_string(), d.first[i]->get_boolean(),
+				d.first[i]->get_list_tuple(), d.first[i]->get_dict(), d.first[i]->get_struct_member_list(), d.first[i]->get_module_runtime(), d.first[i]->get_type_information());
+			rvar->set_unmodifiable(d.first[i]->get_unmodifiable());
+			dict.first.push_back(rvar);
+		}
+		for (int i = 0; i < d.second.size(); i++) {
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(d.second[i]->get_storage_field(), d.second[i]->get_integer(), d.second[i]->get_decimal(), d.second[i]->get_string(), d.second[i]->get_boolean(),
+				d.second[i]->get_list_tuple(), d.second[i]->get_dict(), d.second[i]->get_struct_member_list(), d.second[i]->get_module_runtime(), d.second[i]->get_type_information());
+			rvar->set_unmodifiable(d.second[i]->get_unmodifiable());
+			dict.second.push_back(rvar);
+		}
 		return dict;
 	}
 
@@ -201,9 +217,12 @@ namespace dharma_vm {
 
 	vector<shared_ptr<runtime_variable>> runtime_variable::set_struct_member_list(vector<shared_ptr<runtime_variable>> sml) {
 		struct_member_list.clear();
-		for (int i = 0; i < sml.size(); i++)
-			struct_member_list.push_back(make_shared<runtime_variable>(sml[i]->get_storage_field(), sml[i]->get_integer(), sml[i]->get_decimal(), sml[i]->get_string(), sml[i]->get_boolean(),
-				sml[i]->get_list_tuple(), sml[i]->get_dict(), sml[i]->get_struct_member_list(), sml[i]->get_module_runtime(), sml[i]->get_type_information()));
+		for (int i = 0; i < sml.size(); i++) {
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(sml[i]->get_storage_field(), sml[i]->get_integer(), sml[i]->get_decimal(), sml[i]->get_string(), sml[i]->get_boolean(),
+				sml[i]->get_list_tuple(), sml[i]->get_dict(), sml[i]->get_struct_member_list(), sml[i]->get_module_runtime(), sml[i]->get_type_information());
+			rvar->set_unmodifiable(sml[i]->get_unmodifiable());
+			struct_member_list.push_back(rvar);
+		}
 		return struct_member_list;
 	}
 
@@ -1204,6 +1223,8 @@ namespace dharma_vm {
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 		if (dest->get_unmodifiable())
 			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, dest);
+		if (src->get_unmodifiable())
+			dest->set_unmodifiable(src->get_unmodifiable());
 		if (src->get_type_information() == type_information_list::_int) {
 			dest->set_integer(src->get_integer());
 			dest->set_type_information(type_information_list::_int);
@@ -1335,7 +1356,8 @@ namespace dharma_vm {
 		type_information type_two = src->get_type_information();
 		if (dest->get_unmodifiable())
 			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, dest);
-		dest->set_unmodifiable(src->get_unmodifiable());
+		if (src->get_unmodifiable())
+			dest->set_unmodifiable(src->get_unmodifiable());
 		if (type_one == type_information_list::_int) {
 			if (type_two == type_information_list::_decimal) {
 				dest->set_integer(src->get_decimal());
@@ -1782,6 +1804,7 @@ namespace dharma_vm {
 
 	const string builtins::builtin__va_args__ = "__va_args__";
 	const string builtins::va_args_function_parameter = "_";
+	const string builtins::builtin_print = "print";
 
 	tuple<string, register_identifier_kind, type_kind> runtime::deduce_register_identifier_kind(string ident) {
 		string temp = ident;
@@ -2278,7 +2301,8 @@ namespace dharma_vm {
 		for (int i = 0; i < insn_list.size(); i++) {
 			vector<string> temp = insn_list[i];
 			if (temp.size() == 0);
-			if (temp[0] == vm_instruction_list::list || temp[0] == vm_instruction_list::tupl) {
+			else if (temp.size() == 1);
+			else if (temp[0] == vm_instruction_list::list || temp[0] == vm_instruction_list::tupl) {
 				if (temp.size() < 2)
 					report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, nullptr);
 				string op = temp[0];
@@ -2544,8 +2568,26 @@ namespace dharma_vm {
 					dest = dec(dest);
 				else if (op == vm_instruction_list::neg)
 					dest = -dest;
+				else if (op == vm_instruction_list::ret)
+					return dest;
 				else
 					report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, dest);
+			}
+			else if (temp.size() == 3 && temp[0] == vm_instruction_list::jmp) {
+				string d = temp[1];
+				string label = temp[2];
+				shared_ptr<runtime_variable> dest = deduce_runtime_variable(d, true);
+				if (dest->get_type_information() != type_information_list::_boolean)
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+				if (dest->get_boolean()) {
+					for (int j = 0; j < insn_list.size(); j++) {
+						vector<string> insn = insn_list[j];
+						if (insn.size() == 1 && insn[0] == label) {
+							i = j - 1;
+							break;
+						}
+					}
+				}
 			}
 			else if (temp.size() == 3) {
 				string op = temp[0];
@@ -2687,8 +2729,10 @@ namespace dharma_vm {
 			}
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, nullptr);
-			dump_runtime_variables(instruction_list);
-			cout << '\n';
+			/***
+				dump_runtime_variables(instruction_list);
+				cout << '\n';
+			***/
 		}
 		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_boolean);
@@ -2784,9 +2828,12 @@ namespace dharma_vm {
 
 	vector<shared_ptr<runtime_variable>> runtime::set_instruction_list(vector<shared_ptr<runtime_variable>> insn_list) {
 		instruction_list.clear();
-		for (int i = 0; i < insn_list.size(); i++)
-			instruction_list.push_back(make_shared<runtime_variable>(insn_list[i]->get_storage_field(), insn_list[i]->get_integer(), insn_list[i]->get_decimal(), insn_list[i]->get_string(), insn_list[i]->get_boolean(),
-				insn_list[i]->get_list_tuple(), insn_list[i]->get_dict(), insn_list[i]->get_struct_member_list(), insn_list[i]->get_module_runtime(), insn_list[i]->get_type_information()));
+		for (int i = 0; i < insn_list.size(); i++) {
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(insn_list[i]->get_storage_field(), insn_list[i]->get_integer(), insn_list[i]->get_decimal(), insn_list[i]->get_string(), insn_list[i]->get_boolean(),
+				insn_list[i]->get_list_tuple(), insn_list[i]->get_dict(), insn_list[i]->get_struct_member_list(), insn_list[i]->get_module_runtime(), insn_list[i]->get_type_information());
+			rvar->set_unmodifiable(insn_list[i]->get_unmodifiable());
+			instruction_list.push_back(rvar);
+		}
 		return instruction_list;
 	}
 
