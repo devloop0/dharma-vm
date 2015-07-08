@@ -102,7 +102,9 @@ namespace dharma_vm {
 				argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
 			instruction_list.push_back(rvar);
 		}
-		runtime r(func->get_function_code(), instruction_list, function_list);
+		runtime r(func->get_function_code(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>());
+		r.set_instruction_list(instruction_list);
+		r.set_function_list(function_list);
 		shared_ptr<runtime_variable> ret = r.run_program();
 		instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
 		instruction_list.erase(instruction_list.begin() + save, instruction_list.end());

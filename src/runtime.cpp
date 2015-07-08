@@ -2207,7 +2207,7 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(int reg) {
-		for (int i = 0; i < instruction_list.size(); i++)
+		for (int i = instruction_list.size() - 1; i >= 0; i--)
 			if (instruction_list[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER) {
 				if (instruction_list[i]->get_storage_field().get_register_number() == reg) {
 					return make_pair(instruction_list[i], true);
@@ -2217,7 +2217,7 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(string ident) {
-		for (int i = 0; i < instruction_list.size(); i++)
+		for (int i = instruction_list.size() - 1; i >= 0; i--)
 			if (instruction_list[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER) {
 				if (instruction_list[i]->get_storage_field().get_identifier() == ident)
 					return make_pair(instruction_list[i], true);
@@ -2729,10 +2729,10 @@ namespace dharma_vm {
 			}
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, nullptr);
-			/***
+				/***
 				dump_runtime_variables(instruction_list);
 				cout << '\n';
-			***/
+				***/
 		}
 		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()), type_information_list::_boolean);
