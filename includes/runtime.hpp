@@ -188,6 +188,8 @@ namespace dharma_vm {
 		vector<shared_ptr<runtime_variable>> set_struct_member_list(vector<shared_ptr<runtime_variable>> sml);
 		shared_ptr<runtime> get_module_runtime();
 		shared_ptr<runtime> set_module_runtime(shared_ptr<runtime> mr);
+		storage_field set_storage_field(storage_field sf);
+		shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> src);
 	};
 
 	const bool equals_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -218,6 +220,7 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> inc(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> dec(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> strict_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 
 	bool report_error_and_terminate_program(string msg, shared_ptr<runtime_variable> rvar);
 
@@ -278,17 +281,20 @@ namespace dharma_vm {
 		vector<string> string_instruction_list;
 		const static string runtime_temporary_prefix;
 		int runtime_temporary_count;
+		vector<int> function_limit;
+		vector<vector<shared_ptr<runtime_variable>>> stacked_function_instruction_list;
 
 		vector<string> parse_instruction(string insn);
 		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
 		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist);
 		const bool function_pass();
 		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
+		shared_ptr<runtime_variable> checked_insertion(shared_ptr<runtime_variable> rvar);
 		const bool struct_pass();
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		public:
-			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl);
+			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl, vector<vector<shared_ptr<runtime_variable>>> sfil);
 			~runtime();
 			shared_ptr<runtime_variable> run_program();
 			bool dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list);

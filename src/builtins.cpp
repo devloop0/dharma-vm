@@ -74,9 +74,8 @@ namespace dharma_vm {
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 		shared_ptr<runtime_variable> ret = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
-			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>()),
-			type_information_list::_boolean);
-		instruction_list.push_back(ret);
-		return instruction_list[instruction_list.size() - 1];
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
+				vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_boolean);
+		return checked_insertion(ret);
 	}
 }

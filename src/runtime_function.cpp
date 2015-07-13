@@ -72,6 +72,7 @@ namespace dharma_vm {
 	}
 
 	shared_ptr<runtime_variable> runtime::run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list) {
+		vector<shared_ptr<runtime_variable>> temp;
 		if (func == nullptr || fvar == nullptr)
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 		if (func->get_function_name() == fvar->get_string());
@@ -90,8 +91,9 @@ namespace dharma_vm {
 					argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
 				excess_argument_list.push_back(rvar);
 			}
-			instruction_list.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, excess_argument_list,
-				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr, type_information_list::_tuple));
+			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, excess_argument_list,
+				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
+					vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_tuple));
 		}
 		else {
 			if (func->get_function_argument_list().size() != argument_list.size())
@@ -100,19 +102,23 @@ namespace dharma_vm {
 		for (int i = 0; i < vec.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, vec[i].substr(1, vec[i].length() - 2), storage_field_kind::STORAGE_FIELD_IDENTIFIER), argument_list[i]->get_integer(), argument_list[i]->get_decimal(), argument_list[i]->get_string(), argument_list[i]->get_boolean(),
 				argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
-			instruction_list.push_back(rvar);
+			temp.push_back(rvar);
 		}
-		runtime r(func->get_function_code(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>());
-		r.set_instruction_list(instruction_list);
-		r.set_function_list(function_list);
+		//if (function_deletion.size() > 0) {
+		//	instruction_list.erase(instruction_list.begin() + function_deletion[function_deletion.size() - 1], instruction_list.begin() + save);
+		//	function_deletion.erase(function_deletion.end() - 1, function_deletion.end());
+		//}
+		stacked_function_instruction_list.push_back(temp);
+		runtime r(func->get_function_code(), instruction_list, function_list, stacked_function_instruction_list);
 		shared_ptr<runtime_variable> ret = r.run_program();
-		instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
-		instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
+		stacked_function_instruction_list.pop_back();
+		//instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
+		//instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
 		return ret;
 	}
 
 	const bool runtime::struct_pass() {
-		int save_begin = instruction_list.size();
+		int save_begin = stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size();
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> insn_list = parse_instruction(string_instruction_list[i]);
 			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::struc || insn_list[0] == vm_instruction_list::istruc)) {
@@ -122,10 +128,10 @@ namespace dharma_vm {
 						type_class_kind::TYPE_CLASS_YES, sname));
 				if (insn_list[0] == vm_instruction_list::istruc)
 					rvar->set_unmodifiable(true);
-				instruction_list.push_back(rvar);
+				checked_insertion(rvar);
 			}
 		}
-		int save_end = instruction_list.size();
+		int save_end = stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size();
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> insn_list = parse_instruction(string_instruction_list[i]);
 			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::struc || insn_list[0] == vm_instruction_list::istruc)) {
@@ -138,7 +144,7 @@ namespace dharma_vm {
 					rvar->set_unmodifiable(true);
 				vector<string> struct_code;
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
-				int save = instruction_list.size();
+				int save = stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size();
 				vector<shared_ptr<runtime_variable>> rvar_list;
 				while (i < string_instruction_list.size()) {
 					vector<string> temp = parse_instruction(string_instruction_list[i]);
@@ -150,10 +156,15 @@ namespace dharma_vm {
 				}
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				i--;
-				runtime r(struct_code, instruction_list, function_list);
+				runtime r(struct_code, instruction_list, function_list, stacked_function_instruction_list);
 				shared_ptr<runtime_variable> rv = r.run_program();
-				instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
-				for_each(instruction_list.begin() + save, instruction_list.end(), [&](shared_ptr<runtime_variable> rvar) {
+				if (stacked_function_instruction_list.size() > 0)
+					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].insert(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end(),
+						r.instruction_list.begin(), r.instruction_list.end());
+				else
+					instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
+				for_each(stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() : instruction_list.begin() + save,
+					stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end() : instruction_list.end(), [&](shared_ptr<runtime_variable> rvar) {
 					if (rvar->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER);
 					else {
 						bool found = find(member_list.begin(), member_list.end(), rvar->get_storage_field().get_identifier()) != member_list.end();
@@ -199,14 +210,24 @@ namespace dharma_vm {
 						}
 					}
 				});
-				instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
+				if (stacked_function_instruction_list.size() > 0)
+					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save, stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end());
+				else
+					instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
 				if (member_list.size() != rvar_list.size())
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 				rvar->set_struct_member_list(rvar_list);
-				instruction_list.push_back(rvar);
+				if (stacked_function_instruction_list.size() > 0)
+					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].push_back(rvar);
+				else
+					instruction_list.push_back(rvar);
 			}
 		}
-		instruction_list.erase(instruction_list.begin() + save_begin, instruction_list.begin() + save_end);
+		if (stacked_function_instruction_list.size() > 0)
+			stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save_begin,
+				stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save_end);
+		else
+			instruction_list.erase(instruction_list.begin() + save_begin, instruction_list.begin() + save_end);
 		return true;
 	}
 }
