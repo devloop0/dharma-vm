@@ -45,6 +45,8 @@ namespace dharma_vm {
 	const string vm_instruction_list::emodule = "emodule";
 	const string vm_instruction_list::imov = "imov";
 	const string vm_instruction_list::ret = "ret";
+	const string vm_instruction_list::_enum = "enum";
+	const string vm_instruction_list::ifunc = "ifunc";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -102,7 +104,7 @@ namespace dharma_vm {
 		list_tuple = lt;
 		dict = di;
 		unmodifiable = false;
-		struct_member_list = sml;
+		struct_enum_member_list = sml;
 		module_runtime = mr;
 		for (int i = 0; i < str.length(); i++)
 			if (i + 1 < str.length() && str[i] == '\\' && str[i + 1] == 'n') {
@@ -140,7 +142,7 @@ namespace dharma_vm {
 		list_tuple.clear();
 		for (int i = 0; i < lt.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(lt[i]->get_storage_field(), lt[i]->get_integer(), lt[i]->get_decimal(), lt[i]->get_string(), lt[i]->get_boolean(),
-				lt[i]->get_list_tuple(), lt[i]->get_dict(), lt[i]->get_struct_member_list(), lt[i]->get_module_runtime(), lt[i]->get_type_information());
+				lt[i]->get_list_tuple(), lt[i]->get_dict(), lt[i]->get_struct_enum_member_list(), lt[i]->get_module_runtime(), lt[i]->get_type_information());
 			rvar->set_unmodifiable(lt[i]->get_unmodifiable());
 			list_tuple.push_back(rvar);
 		}
@@ -152,13 +154,13 @@ namespace dharma_vm {
 		dict.second.clear();
 		for (int i = 0; i < d.first.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(d.first[i]->get_storage_field(), d.first[i]->get_integer(), d.first[i]->get_decimal(), d.first[i]->get_string(), d.first[i]->get_boolean(),
-				d.first[i]->get_list_tuple(), d.first[i]->get_dict(), d.first[i]->get_struct_member_list(), d.first[i]->get_module_runtime(), d.first[i]->get_type_information());
+				d.first[i]->get_list_tuple(), d.first[i]->get_dict(), d.first[i]->get_struct_enum_member_list(), d.first[i]->get_module_runtime(), d.first[i]->get_type_information());
 			rvar->set_unmodifiable(d.first[i]->get_unmodifiable());
 			dict.first.push_back(rvar);
 		}
 		for (int i = 0; i < d.second.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(d.second[i]->get_storage_field(), d.second[i]->get_integer(), d.second[i]->get_decimal(), d.second[i]->get_string(), d.second[i]->get_boolean(),
-				d.second[i]->get_list_tuple(), d.second[i]->get_dict(), d.second[i]->get_struct_member_list(), d.second[i]->get_module_runtime(), d.second[i]->get_type_information());
+				d.second[i]->get_list_tuple(), d.second[i]->get_dict(), d.second[i]->get_struct_enum_member_list(), d.second[i]->get_module_runtime(), d.second[i]->get_type_information());
 			rvar->set_unmodifiable(d.second[i]->get_unmodifiable());
 			dict.second.push_back(rvar);
 		}
@@ -211,19 +213,19 @@ namespace dharma_vm {
 		return unmodifiable;
 	}
 
-	vector<shared_ptr<runtime_variable>> runtime_variable::get_struct_member_list() {
-		return struct_member_list;
+	vector<shared_ptr<runtime_variable>> runtime_variable::get_struct_enum_member_list() {
+		return struct_enum_member_list;
 	}
 
-	vector<shared_ptr<runtime_variable>> runtime_variable::set_struct_member_list(vector<shared_ptr<runtime_variable>> sml) {
-		struct_member_list.clear();
+	vector<shared_ptr<runtime_variable>> runtime_variable::set_struct_enum_member_list(vector<shared_ptr<runtime_variable>> sml) {
+		struct_enum_member_list.clear();
 		for (int i = 0; i < sml.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(sml[i]->get_storage_field(), sml[i]->get_integer(), sml[i]->get_decimal(), sml[i]->get_string(), sml[i]->get_boolean(),
-				sml[i]->get_list_tuple(), sml[i]->get_dict(), sml[i]->get_struct_member_list(), sml[i]->get_module_runtime(), sml[i]->get_type_information());
+				sml[i]->get_list_tuple(), sml[i]->get_dict(), sml[i]->get_struct_enum_member_list(), sml[i]->get_module_runtime(), sml[i]->get_type_information());
 			rvar->set_unmodifiable(sml[i]->get_unmodifiable());
-			struct_member_list.push_back(rvar);
+			struct_enum_member_list.push_back(rvar);
 		}
-		return struct_member_list;
+		return struct_enum_member_list;
 	}
 
 	shared_ptr<runtime> runtime_variable::get_module_runtime() {
@@ -234,6 +236,20 @@ namespace dharma_vm {
 		module_runtime->set_instruction_list(mr->get_instruction_list());
 		module_runtime->set_function_list(mr->get_function_list());
 		return module_runtime;
+	}
+
+	shared_ptr<runtime_variable> runtime_variable::function_parameter_mov(shared_ptr<runtime_variable> &rvar) {
+		integer = rvar->integer;
+		decimal = rvar->decimal;
+		str = rvar->str;
+		boolean = rvar->boolean;
+		list_tuple = rvar->list_tuple;
+		dict = rvar->dict;
+		struct_enum_member_list = rvar->struct_enum_member_list;
+		module_runtime = rvar->module_runtime;
+		t_inf = rvar->t_inf;
+		unmodifiable = rvar->unmodifiable;
+		return make_shared<runtime_variable>(*this);
 	}
 
 	storage_field runtime_variable::set_storage_field(storage_field sf) {
@@ -954,13 +970,28 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
-		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+		else if ((dest->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM || dest->get_type_information().get_type_kind() == type_kind::TYPE_ENUM) && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
 			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
 			string dest_class_name = dest->get_type_information().get_class_name();
-			if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
-				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			if ((src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM || src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM) && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES && src->get_type_information().get_type_kind() == dest->get_type_information().get_type_kind()) {
 				string src_class_name = src->get_type_information().get_class_name();
 				if (dest_class_name != src_class_name)
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+				dest->set_boolean(equals_equals(dest, src));
+				dest->set_type_information(type_information_list::_boolean);
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			string dest_class_name = dest->get_type_information().get_class_name();
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				string src_class_name = src->get_type_information().get_class_name();
+				if(dest_class_name != src_class_name)
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 				dest->set_boolean(equals_equals(dest, src));
 				dest->set_type_information(type_information_list::_boolean);
@@ -1210,10 +1241,11 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
-		else if (type_two.get_type_kind() == type_kind::TYPE_CUSTOM && type_two.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
+		else if ((type_two.get_type_kind() == type_kind::TYPE_CUSTOM || type_two.get_type_kind() == type_kind::TYPE_ENUM) && type_two.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
 			type_two.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
-			if (type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
-				type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES && type_one.get_class_name() == type_two.get_class_name()))
+			if (type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_CUSTOM || type_one.get_type_kind() == type_kind::TYPE_ENUM) && 
+				(type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO  || type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) &&
+				type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES && type_one.get_class_name() == type_two.get_class_name() && type_one.get_type_kind() == type_two.get_type_kind())
 				return dest;
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
@@ -1270,8 +1302,8 @@ namespace dharma_vm {
 			dest->set_type_information(type_information_list::_func);
 			return dest;
 		}
-		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
-			dest->set_struct_member_list(src->get_struct_member_list());
+		else if ((src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM || src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM) && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			dest->set_struct_enum_member_list(src->get_struct_enum_member_list());
 			dest->set_type_information(src->get_type_information());
 			return dest;
 		}
@@ -1280,8 +1312,23 @@ namespace dharma_vm {
 			dest->set_type_information(src->get_type_information());
 			return dest;
 		}
-		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
-			dest->set_struct_member_list(src->get_struct_member_list());
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			dest->set_type_information(src->get_type_information());
+			dest->set_string(src->get_string());
+			return dest;
+		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			dest->set_type_information(src->get_type_information());
+			dest->set_string(src->get_string());
+			return dest;
+		}
+		else if (src->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			dest->set_module_runtime(src->get_module_runtime());
+			dest->set_type_information(src->get_type_information());
+			return dest;
+		}
+		else if ((src->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM || src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM) && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+			dest->set_struct_enum_member_list(src->get_struct_enum_member_list());
 			dest->set_type_information(src->get_type_information());
 			return dest;
 		}
@@ -1421,7 +1468,7 @@ namespace dharma_vm {
 				dest->set_type_information(type_information_list::_boolean);
 				return dest;
 			}
-			else if (type_two == type_information_list::_boolean) {
+			else if (type_two == type_information_list::_nil) {
 				dest->set_boolean(false);
 				dest->set_type_information(type_information_list::_boolean);
 				return dest;
@@ -1482,7 +1529,7 @@ namespace dharma_vm {
 		}
 		else if (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
 			if (type_two == type_one) {
-				dest->set_struct_member_list(src->get_struct_member_list());
+				dest->set_struct_enum_member_list(src->get_struct_enum_member_list());
 				dest->set_type_information(src->get_type_information());
 				return dest;
 			}
@@ -1602,10 +1649,18 @@ namespace dharma_vm {
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
-		else if (type_one.get_type_kind() == type_kind::TYPE_CUSTOM && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
+		else if ((type_one.get_type_kind() == type_kind::TYPE_CUSTOM || type_one.get_type_kind() == type_kind::TYPE_ENUM) && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) {
 			if (type_one == type_two) {
-				dest->set_struct_member_list(src->get_struct_member_list());
+				dest->set_struct_enum_member_list(src->get_struct_enum_member_list());
 				dest->set_type_information(src->get_type_information());
+				return dest;
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_one.get_type_kind() == type_kind::TYPE_ENUM_CHILD && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+			if (type_one == type_two) {
+				dest->set_string(src->get_string());
 				return dest;
 			}
 			else
@@ -1759,10 +1814,10 @@ namespace dharma_vm {
 				string src_class_name = src->get_type_information().get_class_name();
 				if (dest_class_name != src_class_name)
 					return false;
-				if (dest->get_struct_member_list().size() != src->get_struct_member_list().size())
+				if (dest->get_struct_enum_member_list().size() != src->get_struct_enum_member_list().size())
 					return false;
-				vector<shared_ptr<runtime_variable>> dest_list = dest->get_struct_member_list();
-				vector<shared_ptr<runtime_variable>> src_list = src->get_struct_member_list();
+				vector<shared_ptr<runtime_variable>> dest_list = dest->get_struct_enum_member_list();
+				vector<shared_ptr<runtime_variable>> src_list = src->get_struct_enum_member_list();
 				for (int i = 0; i < dest_list.size(); i++) {
 					shared_ptr<runtime_variable> dvar = dest_list[i];
 					shared_ptr<runtime_variable> svar = src_list[i];
@@ -1774,6 +1829,28 @@ namespace dharma_vm {
 			}
 			else
 				return false;
+		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_ENUM && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			string dest_class_name = dest->get_type_information().get_class_name();
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				string src_class_name = src->get_type_information().get_class_name();
+				if (dest_class_name == src_class_name && dest->get_struct_enum_member_list().size() == src->get_struct_enum_member_list().size())
+					return true;
+			}
+			return false;
+		}
+		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			string dest_class_name = dest->get_type_information().get_class_name();
+			if (src->get_type_information().get_type_kind() == type_kind::TYPE_ENUM_CHILD && src->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				src->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+				string src_class_name = src->get_type_information().get_class_name();
+				if (dest_class_name == src_class_name && dest->get_string() == src->get_string())
+					return true;
+			}
+			return false;
 		}
 		else if (dest->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && dest->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
 			dest->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
@@ -1994,14 +2071,14 @@ namespace dharma_vm {
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
 				}
-				else if (base->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && base->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
+				else if ((base->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM || base->get_type_information().get_type_kind() == type_kind::TYPE_ENUM) && base->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO &&
 					base->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
 					shared_ptr<runtime_variable> rvar = nullptr;
 					string to_find = token_list[i + 1];
-					for (int i = 0; i < base->get_struct_member_list().size(); i++)
-						if (base->get_struct_member_list()[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
-							base->get_struct_member_list()[i]->get_storage_field().get_identifier() == to_find) {
-							rvar = base->get_struct_member_list()[i];
+					for (int i = 0; i < base->get_struct_enum_member_list().size(); i++)
+						if (base->get_struct_enum_member_list()[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
+							base->get_struct_enum_member_list()[i]->get_storage_field().get_identifier() == to_find) {
+							rvar = base->get_struct_enum_member_list()[i];
 							break;
 						}
 					if (rvar == nullptr)
@@ -2313,6 +2390,7 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> runtime::run_program() {
 		function_pass();
 		struct_pass();
+		enum_pass();
 		vector<vector<string>> insn_list;
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> temp = parse_instruction(string_instruction_list[i]);
@@ -2536,7 +2614,7 @@ namespace dharma_vm {
 				vector<string> module_code;
 				int emodule_count = 0;
 				while (i < insn_list.size()) {
-					if (insn_list[i].size() > 0 && insn_list[i][0] == vm_instruction_list::module)
+					if (insn_list[i].size() > 0 && (insn_list[i][0] == vm_instruction_list::module || insn_list[i][0] == vm_instruction_list::imodule))
 						emodule_count++;
 					if (insn_list[i].size() > 0 && insn_list[i][0] == vm_instruction_list::emodule) {
 						if (emodule_count == 0)
@@ -2601,7 +2679,8 @@ namespace dharma_vm {
 				string d = temp[1];
 				string label = temp[2];
 				shared_ptr<runtime_variable> dest = deduce_runtime_variable(d, true);
-				if (dest->get_type_information() != type_information_list::_boolean)
+				if (dest->get_type_information() == type_information_list::_boolean);
+				else
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 				if (dest->get_boolean()) {
 					for (int j = 0; j < insn_list.size(); j++) {
@@ -2812,7 +2891,7 @@ namespace dharma_vm {
 				cout << "Function: " << rvar->get_string();
 			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_CUSTOM && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
 				cout << rvar->get_type_information().get_class_name() << ": {\n";
-				dump_runtime_variables(rvar->get_struct_member_list());
+				dump_runtime_variables(rvar->get_struct_enum_member_list());
 				cout << "}";
 			}
 			else if (rvar->get_type_information().get_type_kind() == type_kind::TYPE_MODULE && rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
@@ -2854,7 +2933,7 @@ namespace dharma_vm {
 		instruction_list.clear();
 		for (int i = 0; i < insn_list.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(insn_list[i]->get_storage_field(), insn_list[i]->get_integer(), insn_list[i]->get_decimal(), insn_list[i]->get_string(), insn_list[i]->get_boolean(),
-				insn_list[i]->get_list_tuple(), insn_list[i]->get_dict(), insn_list[i]->get_struct_member_list(), insn_list[i]->get_module_runtime(), insn_list[i]->get_type_information());
+				insn_list[i]->get_list_tuple(), insn_list[i]->get_dict(), insn_list[i]->get_struct_enum_member_list(), insn_list[i]->get_module_runtime(), insn_list[i]->get_type_information());
 			rvar->set_unmodifiable(insn_list[i]->get_unmodifiable());
 			instruction_list.push_back(rvar);
 		}

@@ -82,6 +82,8 @@ namespace dharma_vm {
 		const static string emodule;
 		const static string imov;
 		const static string ret;
+		const static string _enum;
+		const static string ifunc;
 	};
 
 	class type_information_list {
@@ -108,7 +110,8 @@ namespace dharma_vm {
 	};
 
 	enum type_kind {
-		TYPE_INT, TYPE_DECIMAL, TYPE_BOOLEAN, TYPE_STRING, TYPE_LIST, TYPE_TUPLE, TYPE_DICT, TYPE_NIL, TYPE_FUNC, TYPE_CUSTOM, TYPE_MODULE, TYPE_NONE
+		TYPE_INT, TYPE_DECIMAL, TYPE_BOOLEAN, TYPE_STRING, TYPE_LIST, TYPE_TUPLE, TYPE_DICT, TYPE_NIL, TYPE_FUNC,
+		TYPE_ENUM, TYPE_ENUM_CHILD, TYPE_CUSTOM, TYPE_MODULE, TYPE_NONE
 	};
 
 	enum type_pure_kind {
@@ -158,7 +161,7 @@ namespace dharma_vm {
 		bool boolean;
 		vector<shared_ptr<runtime_variable>> list_tuple;
 		pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> dict;
-		vector<shared_ptr<runtime_variable>> struct_member_list;
+		vector<shared_ptr<runtime_variable>> struct_enum_member_list;
 		shared_ptr<runtime> module_runtime;
 		type_information t_inf;
 		storage_field s_field;
@@ -184,12 +187,12 @@ namespace dharma_vm {
 		storage_field get_storage_field();
 		const bool get_unmodifiable();
 		bool set_unmodifiable(bool b);
-		vector<shared_ptr<runtime_variable>> get_struct_member_list();
-		vector<shared_ptr<runtime_variable>> set_struct_member_list(vector<shared_ptr<runtime_variable>> sml);
+		vector<shared_ptr<runtime_variable>> get_struct_enum_member_list();
+		vector<shared_ptr<runtime_variable>> set_struct_enum_member_list(vector<shared_ptr<runtime_variable>> sml);
 		shared_ptr<runtime> get_module_runtime();
 		shared_ptr<runtime> set_module_runtime(shared_ptr<runtime> mr);
 		storage_field set_storage_field(storage_field sf);
-		shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> src);
+		shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> &rvar);
 	};
 
 	const bool equals_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -271,10 +274,6 @@ namespace dharma_vm {
 			const static string builtin_print;
 	};
 
-	//Add builtins definitions for future use
-	const vector<shared_ptr<runtime_variable>> builtins_list = {};
-	const vector<shared_ptr<function>> builtins_function_list = {};
-
 	class runtime {
 		vector<shared_ptr<runtime_variable>> instruction_list;
 		vector<shared_ptr<function>> function_list;
@@ -291,6 +290,7 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
 		shared_ptr<runtime_variable> checked_insertion(shared_ptr<runtime_variable> rvar);
 		const bool struct_pass();
+		const bool enum_pass();
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		public:

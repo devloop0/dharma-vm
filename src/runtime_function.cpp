@@ -37,10 +37,12 @@ namespace dharma_vm {
 	const bool runtime::function_pass() {
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> insn_list = parse_instruction(string_instruction_list[i]);
-			if (insn_list.size() > 0 && insn_list[0] == vm_instruction_list::func) {
+			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::func || insn_list[0] == vm_instruction_list::ifunc)) {
 				string fname = insn_list[1];
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, fname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, fname, false,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr, type_information_list::_func);
+				if (insn_list[0] == vm_instruction_list::ifunc)
+					rvar->set_unmodifiable(true);
 				if (find_instruction(fname).second);
 				else
 					instruction_list.push_back(rvar);
@@ -88,7 +90,7 @@ namespace dharma_vm {
 			vector<shared_ptr<runtime_variable>> excess_argument_list;
 			for (int i = func->get_function_argument_list().size(); i < argument_list.size(); i++) {
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(argument_list[i]->get_storage_field(), argument_list[i]->get_integer(), argument_list[i]->get_decimal(), argument_list[i]->get_string(), argument_list[i]->get_boolean(),
-					argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
+					argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_enum_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
 				excess_argument_list.push_back(rvar);
 			}
 			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, excess_argument_list,
@@ -101,7 +103,7 @@ namespace dharma_vm {
 		}
 		for (int i = 0; i < vec.size(); i++) {
 			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, vec[i].substr(1, vec[i].length() - 2), storage_field_kind::STORAGE_FIELD_IDENTIFIER), argument_list[i]->get_integer(), argument_list[i]->get_decimal(), argument_list[i]->get_string(), argument_list[i]->get_boolean(),
-				argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
+				argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_enum_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information());
 			temp.push_back(rvar);
 		}
 		//if (function_deletion.size() > 0) {
@@ -216,7 +218,7 @@ namespace dharma_vm {
 					instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
 				if (member_list.size() != rvar_list.size())
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-				rvar->set_struct_member_list(rvar_list);
+				rvar->set_struct_enum_member_list(rvar_list);
 				if (stacked_function_instruction_list.size() > 0)
 					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].push_back(rvar);
 				else
@@ -228,6 +230,33 @@ namespace dharma_vm {
 				stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save_end);
 		else
 			instruction_list.erase(instruction_list.begin() + save_begin, instruction_list.begin() + save_end);
+		return true;
+	}
+
+	const bool runtime::enum_pass() {
+		for (int i = 0; i < string_instruction_list.size(); i++) {
+			vector<string> insn = parse_instruction(string_instruction_list[i]);
+			if (insn.size() > 0 && insn[0] == vm_instruction_list::_enum) {
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[1], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[1], false,
+					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM, type_pure_kind::TYPE_PURE_NO,
+						type_class_kind::TYPE_CLASS_YES, insn[1]));
+				vector<shared_ptr<runtime_variable>> vec;
+				for (int i = 2; i < insn.size(); i++) {
+					shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[i], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[i], false,
+						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM_CHILD, type_pure_kind::TYPE_PURE_NO,
+						type_class_kind::TYPE_CLASS_YES, insn[1]));
+					rvar->set_unmodifiable(true);
+					vec.push_back(rvar);
+				}
+				rvar->set_unmodifiable(true);
+				rvar->set_struct_enum_member_list(vec);
+				checked_insertion(rvar);
+				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
+				i--;
+			}
+		}
 		return true;
 	}
 }
