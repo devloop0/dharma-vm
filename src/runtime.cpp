@@ -47,6 +47,8 @@ namespace dharma_vm {
 	const string vm_instruction_list::ret = "ret";
 	const string vm_instruction_list::_enum = "enum";
 	const string vm_instruction_list::ifunc = "ifunc";
+	const string vm_instruction_list::scope = "scope";
+	const string vm_instruction_list::escope = "escope";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -1950,7 +1952,7 @@ namespace dharma_vm {
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(stoi(deduced_string), "", storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER), -1, -1, "",
 						false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(),  vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-							vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
+							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
 					return checked_insertion(temp);
 				}
 			}
@@ -1965,7 +1967,7 @@ namespace dharma_vm {
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(-1, deduced_string, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
 						pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-							vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
+							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
 					return checked_insertion(temp);
 				}
 			}
@@ -2051,7 +2053,7 @@ namespace dharma_vm {
 					if (token_list[i + 1] == "size") {
 						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_list_tuple().size(), -1, "", false,
 							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-								vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_int);
+								vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_int);
 						base = checked_insertion(created_int);
 						runtime_temporary_count++;
 					}
@@ -2064,7 +2066,7 @@ namespace dharma_vm {
 					if (token_list[i + 1] == "size") {
 						shared_ptr<runtime_variable> created_int = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), base->get_string().length(), -1, "", false,
 							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-								vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_int);
+								vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_int);
 						base = checked_insertion(created_int);
 						runtime_temporary_count++;
 					}
@@ -2124,7 +2126,7 @@ namespace dharma_vm {
 					if (rvar->get_integer() >= 0 && rvar->get_integer() < base->get_string().length()) {
 						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, string(1, base->get_string()[rvar->get_integer()]), false,
 							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-								vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_string);
+								vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_string);
 						base = checked_insertion(created_string);
 						runtime_temporary_count++;
 					}
@@ -2197,7 +2199,7 @@ namespace dharma_vm {
 						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
 					shared_ptr<runtime_variable> created_list_tuple = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
 						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-							vector<vector<shared_ptr<runtime_variable>>>()), base->get_type_information());
+							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), base->get_type_information());
 					vector<shared_ptr<runtime_variable>> vec;
 					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
 						vec.push_back(base->get_list_tuple()[i]);
@@ -2223,7 +2225,7 @@ namespace dharma_vm {
 						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, step);
 					shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
 						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-							vector<vector<shared_ptr<runtime_variable>>>()), base->get_type_information());
+							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), base->get_type_information());
 					string s;
 					for (int i = start->get_integer(); i < end->get_integer(); i += step->get_integer())
 						s.push_back(base->get_string()[i]);
@@ -2288,6 +2290,13 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(int reg) {
+		for (int j = 0; j < scope_stack.size(); j++) {
+			vector<shared_ptr<runtime_variable>> vec = scope_stack[j];
+			for (int i = vec.size() - 1; i >= 0; i--)
+				if (vec[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER)
+					if (vec[i]->get_storage_field().get_register_number() == reg)
+						return make_pair(vec[i], true);
+		}
 		if (stacked_function_instruction_list.size() > 0) {
 			vector<shared_ptr<runtime_variable>> vec = stacked_function_instruction_list[stacked_function_instruction_list.size() - 1];
 			for (int i = vec.size() - 1; i >= 0; i--)
@@ -2305,6 +2314,13 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(string ident) {
+		for (int j = 0; j < scope_stack.size(); j++) {
+			vector<shared_ptr<runtime_variable>> vec = scope_stack[j];
+			for (int i = vec.size() - 1; i >= 0; i--)
+				if (vec[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
+					if (vec[i]->get_storage_field().get_identifier() == ident)
+						return make_pair(vec[i], true);
+		}
 		if (stacked_function_instruction_list.size() > 0) {
 			vector<shared_ptr<runtime_variable>> vec = stacked_function_instruction_list[stacked_function_instruction_list.size() - 1];
 			for (int i = vec.size() - 1; i >= 0; i--)
@@ -2375,12 +2391,13 @@ namespace dharma_vm {
 	}
 
 	runtime::runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl,
-		vector<vector<shared_ptr<runtime_variable>>> sfil) {
+		vector<vector<shared_ptr<runtime_variable>>> sfil, vector<vector<shared_ptr<runtime_variable>>> ls) {
 		string_instruction_list = vec;
 		runtime_temporary_count = 0;
 		function_list = fl;
 		instruction_list = il;
 		stacked_function_instruction_list = sfil;
+		scope_stack = ls;
 	}
 
 	runtime::~runtime() {
@@ -2399,6 +2416,10 @@ namespace dharma_vm {
 		for (int i = 0; i < insn_list.size(); i++) {
 			vector<string> temp = insn_list[i];
 			if (temp.size() == 0);
+			else if (temp.size() == 1 && temp[0] == vm_instruction_list::scope)
+				scope_stack.push_back(vector<shared_ptr<runtime_variable>>());
+			else if (temp.size() == 1 && temp[0] == vm_instruction_list::escope)
+				scope_stack.pop_back();
 			else if (temp.size() == 1);
 			else if (temp[0] == vm_instruction_list::list || temp[0] == vm_instruction_list::tupl) {
 				if (temp.size() < 2)
@@ -2639,7 +2660,7 @@ namespace dharma_vm {
 				i--;
 				int save = stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size();
 				int fsave = function_list.size();
-				runtime r(module_code, instruction_list, function_list, stacked_function_instruction_list);
+				runtime r(module_code, instruction_list, function_list, stacked_function_instruction_list, scope_stack);
 				r.run_program();
 				if (stacked_function_instruction_list.size() > 0)
 					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save,
@@ -2839,7 +2860,7 @@ namespace dharma_vm {
 		}
 		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-				vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_boolean);
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_boolean);
 		runtime_temporary_count++;
 		return checked_insertion(created_bool);
 	}
@@ -2949,6 +2970,10 @@ namespace dharma_vm {
 	}
 
 	shared_ptr<runtime_variable> runtime::checked_insertion(shared_ptr<runtime_variable> rvar) {
+		if (scope_stack.size() > 0) {
+			scope_stack[scope_stack.size() - 1].push_back(rvar);
+			return scope_stack[scope_stack.size() - 1][scope_stack[scope_stack.size() - 1].size() - 1];
+		}
 		if (stacked_function_instruction_list.size() > 0) {
 			stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].push_back(rvar);
 			return stacked_function_instruction_list[stacked_function_instruction_list.size() - 1][stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() - 1];

@@ -95,7 +95,7 @@ namespace dharma_vm {
 			}
 			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, excess_argument_list,
 				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-					vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_tuple));
+					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_tuple));
 		}
 		else {
 			if (func->get_function_argument_list().size() != argument_list.size())
@@ -111,7 +111,7 @@ namespace dharma_vm {
 		//	function_deletion.erase(function_deletion.end() - 1, function_deletion.end());
 		//}
 		stacked_function_instruction_list.push_back(temp);
-		runtime r(func->get_function_code(), instruction_list, function_list, stacked_function_instruction_list);
+		runtime r(func->get_function_code(), instruction_list, function_list, stacked_function_instruction_list, vector<vector<shared_ptr<runtime_variable>>>());
 		shared_ptr<runtime_variable> ret = r.run_program();
 		stacked_function_instruction_list.pop_back();
 		//instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
@@ -158,7 +158,7 @@ namespace dharma_vm {
 				}
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				i--;
-				runtime r(struct_code, instruction_list, function_list, stacked_function_instruction_list);
+				runtime r(struct_code, instruction_list, function_list, stacked_function_instruction_list, vector<vector<shared_ptr<runtime_variable>>>());
 				shared_ptr<runtime_variable> rv = r.run_program();
 				if (stacked_function_instruction_list.size() > 0)
 					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].insert(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end(),
@@ -239,13 +239,14 @@ namespace dharma_vm {
 			if (insn.size() > 0 && insn[0] == vm_instruction_list::_enum) {
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[1], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[1], false,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
-						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM, type_pure_kind::TYPE_PURE_NO,
-						type_class_kind::TYPE_CLASS_YES, insn[1]));
+						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+							vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, insn[1]));
 				vector<shared_ptr<runtime_variable>> vec;
 				for (int i = 2; i < insn.size(); i++) {
 					shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[i], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[i], false,
 						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
-						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM_CHILD, type_pure_kind::TYPE_PURE_NO,
+						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+							vector<vector<shared_ptr<runtime_variable>>>()), type_information(type_kind::TYPE_ENUM_CHILD, type_pure_kind::TYPE_PURE_NO,
 						type_class_kind::TYPE_CLASS_YES, insn[1]));
 					rvar->set_unmodifiable(true);
 					vec.push_back(rvar);

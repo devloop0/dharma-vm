@@ -84,6 +84,8 @@ namespace dharma_vm {
 		const static string ret;
 		const static string _enum;
 		const static string ifunc;
+		const static string scope;
+		const static string escope;
 	};
 
 	class type_information_list {
@@ -282,6 +284,7 @@ namespace dharma_vm {
 		int runtime_temporary_count;
 		vector<int> function_limit;
 		vector<vector<shared_ptr<runtime_variable>>> stacked_function_instruction_list;
+		vector<vector<shared_ptr<runtime_variable>>> scope_stack;
 
 		vector<string> parse_instruction(string insn);
 		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
@@ -294,7 +297,8 @@ namespace dharma_vm {
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		public:
-			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl, vector<vector<shared_ptr<runtime_variable>>> sfil);
+			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl, vector<vector<shared_ptr<runtime_variable>>> sfil,
+				vector<vector<shared_ptr<runtime_variable>>> ls);
 			~runtime();
 			shared_ptr<runtime_variable> run_program();
 			bool dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list);
