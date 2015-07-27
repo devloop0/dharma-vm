@@ -49,6 +49,10 @@ namespace dharma_vm {
 	const string vm_instruction_list::ifunc = "ifunc";
 	const string vm_instruction_list::scope = "scope";
 	const string vm_instruction_list::escope = "escope";
+	const string vm_instruction_list::dmov = "dmov";
+	const string vm_instruction_list::lambda = "lambda";
+	const string vm_instruction_list::ilambda = "ilambda";
+	const string vm_instruction_list::elambda = "elambda";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -112,6 +116,15 @@ namespace dharma_vm {
 			if (i + 1 < str.length() && str[i] == '\\' && str[i + 1] == 'n') {
 				str.erase(i, 2);
 				str.insert(i, "\n");
+				i--;
+			}
+			else if (i + 1 < str.length() && str[i] == '\\' && (str[i + 1] == '\'' || str[i + 1] == '\"')) {
+				char c = str[i + 1];
+				str.erase(i, 2);
+				if (c == '\'')
+					str.insert(i, "\'");
+				else
+					str.insert(i, "\"");
 				i--;
 			}
 	}
@@ -237,6 +250,9 @@ namespace dharma_vm {
 	shared_ptr<runtime> runtime_variable::set_module_runtime(shared_ptr<runtime> mr) {
 		module_runtime->set_instruction_list(mr->get_instruction_list());
 		module_runtime->set_function_list(mr->get_function_list());
+		module_runtime->set_scope_stack(mr->get_scope_stack());
+		module_runtime->set_stacked_function_instruction_list(mr->get_stacked_function_instruction_list());
+		module_runtime->set_string_instruction_list(mr->get_string_instruction_list());
 		return module_runtime;
 	}
 
@@ -1238,16 +1254,24 @@ namespace dharma_vm {
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
 		else if (type_two == type_information_list::_pure_func) {
-			if (type_one == type_information_list::_func || type_two == type_information_list::_pure_func)
+			if (type_one == type_information_list::_func || type_one == type_information_list::_pure_func)
 				return dest;
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 		}
 		else if ((type_two.get_type_kind() == type_kind::TYPE_CUSTOM || type_two.get_type_kind() == type_kind::TYPE_ENUM) && type_two.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
 			type_two.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
-			if (type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_CUSTOM || type_one.get_type_kind() == type_kind::TYPE_ENUM) && 
-				(type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO  || type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) &&
+			if (type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_CUSTOM || type_one.get_type_kind() == type_kind::TYPE_ENUM) &&
+				(type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO || type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) &&
 				type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES && type_one.get_class_name() == type_two.get_class_name() && type_one.get_type_kind() == type_two.get_type_kind())
+				return dest;
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		}
+		else if (type_two.get_type_kind() == type_kind::TYPE_MODULE && type_two.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && type_two.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) {
+			if ((type_one == type_two || (type_one.get_type_kind() == type_kind::TYPE_MODULE && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES) ||
+				(type_one.get_type_kind() == type_kind::TYPE_MODULE && type_one.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO && type_one.get_type_class_kind() == type_class_kind::TYPE_CLASS_YES)) &&
+				type_one.get_class_name() == type_two.get_class_name())
 				return dest;
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
@@ -1301,6 +1325,7 @@ namespace dharma_vm {
 		}
 		else if (src->get_type_information() == type_information_list::_func) {
 			dest->set_string(src->get_string());
+			dest->set_module_runtime(src->get_module_runtime());
 			dest->set_type_information(type_information_list::_func);
 			return dest;
 		}
@@ -1376,6 +1401,7 @@ namespace dharma_vm {
 		}
 		else if (src->get_type_information() == type_information_list::_pure_func) {
 			dest->set_string(src->get_string());
+			dest->set_module_runtime(src->get_module_runtime());
 			dest->set_type_information(type_information_list::_pure_func);
 			return dest;
 		}
@@ -1523,6 +1549,7 @@ namespace dharma_vm {
 		else if (type_one == type_information_list::_func) {
 			if (type_two == type_information_list::_func) {
 				dest->set_string(src->get_string());
+				dest->set_module_runtime(src->get_module_runtime());
 				dest->set_type_information(type_information_list::_func);
 				return dest;
 			}
@@ -1564,6 +1591,7 @@ namespace dharma_vm {
 			if (type_two == type_information_list::_pure_func) {
 				dest->set_string(src->get_string());
 				dest->set_type_information(type_information_list::_pure_func);
+				dest->set_module_runtime(src->get_module_runtime());
 				return dest;
 			}
 			else if (type_two == type_information_list::_pure_nil) {
@@ -1933,7 +1961,7 @@ namespace dharma_vm {
 		report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
 	}
 
-	shared_ptr<runtime_variable> runtime::deduce_runtime_variable(string ident, bool must_exist) {
+	shared_ptr<runtime_variable> runtime::deduce_runtime_variable(string ident, bool must_exist, bool dmov_override) {
 		tuple<string, register_identifier_kind, type_kind> deduced_tuple = deduce_register_identifier_kind(ident);
 		string deduced_string = get<0>(deduced_tuple);
 		register_identifier_kind deduced_ri_kind = get<1>(deduced_tuple);
@@ -1945,10 +1973,15 @@ namespace dharma_vm {
 		};
 		if (deduced_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_REGISTER) {
 			pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(stoi(deduced_string));
-			if (!pai.second) {
-				if (must_exist) {
+			if (dmov_override) {
+				shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(stoi(deduced_string), "", storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER), -1, -1, "",
+					false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(),  vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
+						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
+				return checked_insertion(temp);
+			}
+			else if (!pai.second) {
+				if (must_exist)
 					report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
-				}
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(stoi(deduced_string), "", storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER), -1, -1, "",
 						false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(),  vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
@@ -1961,9 +1994,16 @@ namespace dharma_vm {
 		}
 		else if (deduced_ri_kind == register_identifier_kind::REGISTER_IDENTIFIER_IDENTIFIER) {
 			pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(deduced_string);
-			if (!pai.second) {
-				if (must_exist)
+			if (dmov_override) {
+				shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(-1, deduced_string, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
+					pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
+						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::bad);
+				return checked_insertion(temp);
+			}
+			else if (!pai.second) {
+				if (must_exist) {
 					report_error_and_terminate_program(runtime_diagnostic_messages::name_not_found, nullptr);
+				}
 				else {
 					shared_ptr<runtime_variable> temp = make_shared<runtime_variable>(storage_field(-1, deduced_string, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
 						pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
@@ -2290,7 +2330,7 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(int reg) {
-		for (int j = 0; j < scope_stack.size(); j++) {
+		for (int j = scope_stack.size() - 1; j >= 0; j--) {
 			vector<shared_ptr<runtime_variable>> vec = scope_stack[j];
 			for (int i = vec.size() - 1; i >= 0; i--)
 				if (vec[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER)
@@ -2314,7 +2354,7 @@ namespace dharma_vm {
 	}
 
 	pair<shared_ptr<runtime_variable>, bool> runtime::find_instruction(string ident) {
-		for (int j = 0; j < scope_stack.size(); j++) {
+		for (int j = scope_stack.size() - 1; j >= 0; j--) {
 			vector<shared_ptr<runtime_variable>> vec = scope_stack[j];
 			for (int i = vec.size() - 1; i >= 0; i--)
 				if (vec[i]->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER)
@@ -2626,6 +2666,60 @@ namespace dharma_vm {
 				dest->set_dict(make_pair(key_list, value_list));
 				dest->set_type_information(type_information_list::_dict);
 			}
+			else if (temp[0] == vm_instruction_list::lambda || temp[0] == vm_instruction_list::ilambda) {
+				string f = temp[1];
+				bool immut = temp[0] == vm_instruction_list::ilambda;
+				i++;
+				vector<string> function_code;
+				int elambda_count = 0;
+				while (i < insn_list.size()) {
+					if (insn_list[i].size() > 0 && (insn_list[i][0] == vm_instruction_list::lambda || insn_list[i][0] == vm_instruction_list::ilambda))
+						elambda_count++;
+					if (insn_list[i].size() > 0 && insn_list[i][0] == vm_instruction_list::elambda) {
+						if (elambda_count == 0)
+							break;
+						else {
+							string code;
+							for (int j = 0; j < insn_list[i].size(); j++)
+								code += insn_list[i][j] + (j == insn_list[i].size() - 1 ? "" : " ");
+							function_code.push_back(code);
+							elambda_count--;
+						}
+					}
+					else {
+						string code;
+						for (int j = 0; j < insn_list[i].size(); j++)
+							code += insn_list[i][j] + (j == insn_list[i].size() - 1 ? "" : " ");
+						function_code.push_back(code);
+					}
+					i++;
+				}
+				vector<string> fal_temp(temp.begin() + 2, temp.end());
+				bool va_args = false;
+				if (fal_temp.size() > 0 && fal_temp[fal_temp.size() - 1] == builtins::va_args_function_parameter) {
+					fal_temp.erase(fal_temp.end() - 1, fal_temp.end());
+					va_args = true;
+				}
+				vector<string> fal;
+				for (int i = 0; i < fal_temp.size(); i++)
+					fal.push_back("[" + fal_temp[i] + "]");
+				shared_ptr<runtime> r = make_shared<runtime>(function_code, vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>());
+				r->set_instruction_list(instruction_list);
+				r->set_function_list(function_list);
+				r->set_scope_stack(scope_stack);
+				r->set_stacked_function_instruction_list(stacked_function_instruction_list);
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, f, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, f, false,
+					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), 
+					r, type_information_list::_func);
+				rvar->set_unmodifiable(immut);
+				checked_insertion(rvar);
+				rvar->set_module_runtime(r);
+				r->checked_insertion(rvar);
+				shared_ptr<function> func = make_shared<function>(f, function_code, fal, rvar, va_args, true);
+				function_list.push_back(func);
+				added_lambda_function_list.push_back(func);
+				added_lambda_instruction_list.push_back(rvar);
+			}
 			else if (temp[0] == vm_instruction_list::module || temp[0] == vm_instruction_list::imodule) {
 				if (temp.size() != 2)
 					report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, nullptr);
@@ -2658,15 +2752,11 @@ namespace dharma_vm {
 				}
 				insn_list.erase(insn_list.begin() + i, insn_list.begin() + i + 1);
 				i--;
-				int save = stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size();
 				int fsave = function_list.size();
+				scope_stack.push_back(vector<shared_ptr<runtime_variable>>());
 				runtime r(module_code, instruction_list, function_list, stacked_function_instruction_list, scope_stack);
 				r.run_program();
-				if (stacked_function_instruction_list.size() > 0)
-					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save,
-						stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end());
-				else
-					instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
+				scope_stack.pop_back();
 				function_list.erase(function_list.begin() + fsave, function_list.end());
 				type_information _module(type_kind::TYPE_MODULE, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, m);
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, m, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, m, false,
@@ -2717,13 +2807,13 @@ namespace dharma_vm {
 				string op = temp[0];
 				string d = temp[1];
 				string s = temp[2];
-				shared_ptr<runtime_variable> dest = deduce_runtime_variable(d, false);
+				shared_ptr<runtime_variable> dest = deduce_runtime_variable(d, false, temp[0] == vm_instruction_list::dmov || temp[0] == vm_instruction_list::imov);
 				tuple<string, register_identifier_kind, type_kind> dtup = deduce_register_identifier_kind(d);
 				tuple<string, register_identifier_kind, type_kind> tup = deduce_register_identifier_kind(s);
 				bool complex_test = get<1>(dtup) == register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX ||
 					(dest->get_type_information() != type_information_list::bad && dest->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER);
 				if (get<1>(tup) == register_identifier_kind::REGISTER_IDENTIFIER_LITERAL) {
-					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov);
+					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov || op == vm_instruction_list::dmov);
 					else
 						report_error_and_terminate_program(runtime_diagnostic_messages::malformed_instruction, dest);
 					if (get<2>(tup) == type_kind::TYPE_DECIMAL) {
@@ -2802,7 +2892,7 @@ namespace dharma_vm {
 				}
 				else {
 					shared_ptr<runtime_variable> src = deduce_runtime_variable(s, true);
-					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov) {
+					if (op == vm_instruction_list::mov || op == vm_instruction_list::imov || op == vm_instruction_list::dmov) {
 						if (get<1>(dtup) == register_identifier_kind::REGISTER_IDENTIFIER_COMPLEX ||
 							(dest->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_IDENTIFIER &&
 								dest->get_type_information() != type_information_list::bad))
@@ -2965,8 +3055,50 @@ namespace dharma_vm {
 		function_list.clear();
 		for (int i = 0; i < fn_list.size(); i++)
 			function_list.push_back(make_shared<function>(fn_list[i]->get_function_name(), fn_list[i]->get_function_code(), fn_list[i]->get_function_argument_list(),
-				fn_list[i]->get_function_variable(), fn_list[i]->get_va_args()));
+				fn_list[i]->get_function_variable(), fn_list[i]->get_va_args(), fn_list[i]->is_lambda()));
 		return function_list;
+	}
+
+	vector<vector<shared_ptr<runtime_variable>>> runtime::set_stacked_function_instruction_list(vector<vector<shared_ptr<runtime_variable>>> sfil) {
+		stacked_function_instruction_list.clear();
+		for (int j = 0; j < sfil.size(); j++) {
+			vector<shared_ptr<runtime_variable>> vec = sfil[j];
+			stacked_function_instruction_list.push_back(vector<shared_ptr<runtime_variable>>());
+			for (int i = 0; i < vec.size(); i++) {
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(vec[i]->get_storage_field(), vec[i]->get_integer(), vec[i]->get_decimal(), vec[i]->get_string(), vec[i]->get_boolean(),
+					vec[i]->get_list_tuple(), vec[i]->get_dict(), vec[i]->get_struct_enum_member_list(), vec[i]->get_module_runtime(), vec[i]->get_type_information());
+				rvar->set_unmodifiable(vec[i]->get_unmodifiable());
+				stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].push_back(rvar);
+			}
+		}
+		return stacked_function_instruction_list;
+	}
+
+	vector<vector<shared_ptr<runtime_variable>>> runtime::set_scope_stack(vector<vector<shared_ptr<runtime_variable>>> ssl) {
+		scope_stack.clear();
+		for (int j = 0; j < ssl.size(); j++) {
+			vector<shared_ptr<runtime_variable>> vec = ssl[j];
+			scope_stack.push_back(vector<shared_ptr<runtime_variable>>());
+			for (int i = 0; i < vec.size(); i++) {
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(vec[i]->get_storage_field(), vec[i]->get_integer(), vec[i]->get_decimal(), vec[i]->get_string(), vec[i]->get_boolean(),
+					vec[i]->get_list_tuple(), vec[i]->get_dict(), vec[i]->get_struct_enum_member_list(), vec[i]->get_module_runtime(), vec[i]->get_type_information());
+				rvar->set_unmodifiable(vec[i]->get_unmodifiable());
+				scope_stack[scope_stack.size() - 1].push_back(rvar);
+			}
+		}
+		return scope_stack;
+	}
+
+	vector<vector<shared_ptr<runtime_variable>>> runtime::get_scope_stack() {
+		return scope_stack;
+	}
+
+	vector<vector<shared_ptr<runtime_variable>>> runtime::get_stacked_function_instruction_list() {
+		return stacked_function_instruction_list;
+	}
+
+	vector<string> runtime::get_string_instruction_list() {
+		return string_instruction_list;
 	}
 
 	shared_ptr<runtime_variable> runtime::checked_insertion(shared_ptr<runtime_variable> rvar) {
@@ -2983,5 +3115,20 @@ namespace dharma_vm {
 			return instruction_list[instruction_list.size() - 1];
 		}
 		return nullptr;
+	}
+
+	vector<shared_ptr<runtime_variable>> runtime::get_added_lambda_instruction_list() {
+		return added_lambda_instruction_list;
+	}
+
+	vector<shared_ptr<function>> runtime::get_added_lambda_function_list() {
+		return added_lambda_function_list;
+	}
+
+	vector<string> runtime::set_string_instruction_list(vector<string> vec) {
+		string_instruction_list.clear();
+		for (int i = 0; i < vec.size(); i++)
+			string_instruction_list.push_back(vec[i]);
+		return string_instruction_list;
 	}
 }

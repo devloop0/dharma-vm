@@ -86,6 +86,10 @@ namespace dharma_vm {
 		const static string ifunc;
 		const static string scope;
 		const static string escope;
+		const static string dmov;
+		const static string lambda;
+		const static string ilambda;
+		const static string elambda;
 	};
 
 	class type_information_list {
@@ -259,14 +263,16 @@ namespace dharma_vm {
 		vector<string> function_argument_list;
 		shared_ptr<runtime_variable> function_variable;
 		bool va_args;
+		bool lambda;
 	public:
-		function(string fn, vector<string> fc, vector<string> fal, shared_ptr<runtime_variable> fv, bool va);
+		function(string fn, vector<string> fc, vector<string> fal, shared_ptr<runtime_variable> fv, bool va, bool l);
 		~function();
 		string get_function_name();
 		vector<string> get_function_code();
 		vector<string> get_function_argument_list();
 		shared_ptr<runtime_variable> get_function_variable();
 		const bool get_va_args();
+		const bool is_lambda();
 	};
 
 	class builtins {
@@ -282,13 +288,14 @@ namespace dharma_vm {
 		vector<string> string_instruction_list;
 		const static string runtime_temporary_prefix;
 		int runtime_temporary_count;
-		vector<int> function_limit;
 		vector<vector<shared_ptr<runtime_variable>>> stacked_function_instruction_list;
 		vector<vector<shared_ptr<runtime_variable>>> scope_stack;
+		vector<shared_ptr<function>> added_lambda_function_list;
+		vector<shared_ptr<runtime_variable>> added_lambda_instruction_list;
 
 		vector<string> parse_instruction(string insn);
 		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
-		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist);
+		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist, bool dmov_override = false);
 		const bool function_pass();
 		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
 		shared_ptr<runtime_variable> checked_insertion(shared_ptr<runtime_variable> rvar);
@@ -308,6 +315,14 @@ namespace dharma_vm {
 			vector<shared_ptr<function>> get_function_list();
 			vector<shared_ptr<runtime_variable>> set_instruction_list(vector<shared_ptr<runtime_variable>> insn_list);
 			vector<shared_ptr<function>> set_function_list(vector<shared_ptr<function>> fn_list);
+			vector<vector<shared_ptr<runtime_variable>>> get_stacked_function_instruction_list();
+			vector<vector<shared_ptr<runtime_variable>>> get_scope_stack();
+			vector<vector<shared_ptr<runtime_variable>>> set_stacked_function_instruction_list(vector<vector<shared_ptr<runtime_variable>>> sfil);
+			vector<vector<shared_ptr<runtime_variable>>> set_scope_stack(vector<vector<shared_ptr<runtime_variable>>> ssl);
+			vector<string> get_string_instruction_list();
+			vector<string> set_string_instruction_list(vector<string> vec);
+			vector<shared_ptr<runtime_variable>> get_added_lambda_instruction_list();
+			vector<shared_ptr<function>> get_added_lambda_function_list();
 	};
 }
 
