@@ -90,6 +90,8 @@ namespace dharma_vm {
 		const static string lambda;
 		const static string ilambda;
 		const static string elambda;
+		const static string brk;
+		const static string cont;
 	};
 
 	class type_information_list {

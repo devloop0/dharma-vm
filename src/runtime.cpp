@@ -53,6 +53,8 @@ namespace dharma_vm {
 	const string vm_instruction_list::lambda = "lambda";
 	const string vm_instruction_list::ilambda = "ilambda";
 	const string vm_instruction_list::elambda = "elambda";
+	const string vm_instruction_list::brk = "brk";
+	const string vm_instruction_list::cont = "cont";
 
 	const string runtime_diagnostic_messages::malformed_instruction = "Malformed instruction.";
 	const string runtime_diagnostic_messages::incompatible_types = "Incompatible types";
@@ -2764,6 +2766,40 @@ namespace dharma_vm {
 					make_shared<runtime>(r), _module);
 				rvar->set_unmodifiable(immut);
 				checked_insertion(rvar);
+			}
+			else if (temp[0] == vm_instruction_list::brk) {
+				string label = temp[1];
+				int pop_count = 0;
+				while (i < insn_list.size()) {
+					vector<string> inner_temp = insn_list[i];
+					if (inner_temp.size() == 1 && inner_temp[0] == label)
+						break;
+					else if (inner_temp.size() > 0 && inner_temp[0] == vm_instruction_list::scope)
+						pop_count--;
+					else if (inner_temp.size() > 0 && inner_temp[0] == vm_instruction_list::escope)
+						pop_count++;
+					i++;
+				}
+				for (int i = 0; i < pop_count; i++)
+					scope_stack.pop_back();
+				i--;
+			}
+			else if (temp[0] == vm_instruction_list::cont) {
+				string label = temp[1];
+				int pop_count = 0;
+				while (i >= 0) {
+					vector<string> inner_temp = insn_list[i];
+					if (inner_temp.size() == 1 && inner_temp[0] == label)
+						break;
+					else if (inner_temp.size() > 0 && inner_temp[0] == vm_instruction_list::scope)
+						pop_count++;
+					else if (inner_temp.size() > 0 && inner_temp[0] == vm_instruction_list::escope)
+						pop_count--;
+					i--;
+				}
+				for (int i = 0; i < pop_count; i++)
+					scope_stack.pop_back();
+				i--;
 			}
 			else if (temp.size() == 2) {
 				string op = temp[0];

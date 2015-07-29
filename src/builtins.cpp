@@ -13,7 +13,7 @@ namespace dharma_vm {
 			if (rvar->get_dict().first.size() != rvar->get_dict().second.size())
 				report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, rvar);
 			cout << "{{{ ";
-			for (int i = 0; rvar->get_dict().first.size(); i++) {
+			for (int i = 0; i < rvar->get_dict().first.size(); i++) {
 				print(rvar->get_dict().first[i]);
 				cout << ": ";
 				print(rvar->get_dict().second[i]);

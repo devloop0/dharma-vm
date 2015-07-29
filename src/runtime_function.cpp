@@ -91,6 +91,11 @@ namespace dharma_vm {
 		if (func->get_function_name() == builtins::builtin_print) {
 			for (int i = 0; i < argument_list.size(); i++)
 				print(argument_list[i]);
+			shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
+				vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
+					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_boolean);
+			runtime_temporary_count++;
+			return checked_insertion(created_bool);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();
