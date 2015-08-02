@@ -34,6 +34,7 @@ using std::for_each;
 
 namespace dharma_vm {
 
+	class function;
 	class type_information;
 	class runtime;
 
@@ -154,12 +155,14 @@ namespace dharma_vm {
 		int register_number;
 		string identifier;
 		storage_field_kind sf_kind;
+		bool builtin;
 	public:
-		storage_field(int rn, string i, storage_field_kind sfk);
+		storage_field(int rn, string i, storage_field_kind sfk, bool b = false);
 		~storage_field();
 		int get_register_number();
 		string get_identifier();
 		storage_field_kind get_storage_field_kind();
+		const bool is_builtin();
 	};
 
 	class runtime_variable {
@@ -174,9 +177,10 @@ namespace dharma_vm {
 		type_information t_inf;
 		storage_field s_field;
 		bool unmodifiable;
+		vector<shared_ptr<function>> func;
 	public:
 		runtime_variable(storage_field s_field, int i, float d, string s, bool b, vector<shared_ptr<runtime_variable>> lt, pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> di,
-			vector<shared_ptr<runtime_variable>> sml, shared_ptr<runtime> mr, type_information ti);
+			vector<shared_ptr<runtime_variable>> sml, shared_ptr<runtime> mr, type_information ti, vector<shared_ptr<function>> fl);
 		~runtime_variable();
 		int get_integer();
 		float get_decimal();
@@ -201,6 +205,10 @@ namespace dharma_vm {
 		shared_ptr<runtime> set_module_runtime(shared_ptr<runtime> mr);
 		storage_field set_storage_field(storage_field sf);
 		shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> &rvar);
+		shared_ptr<runtime> deep_copy_module_runtime(shared_ptr<runtime> r);
+		vector<shared_ptr<function>> set_function(vector<shared_ptr<function>> fl);
+		vector<shared_ptr<function>> get_function();
+		vector<shared_ptr<function>> add_function(shared_ptr<function> f);
 	};
 
 	const bool equals_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -231,7 +239,7 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> inc(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> dec(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> strict_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
-	shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	const bool operator==(shared_ptr<function> dest, shared_ptr<function> src);
 
 	bool report_error_and_terminate_program(string msg, shared_ptr<runtime_variable> rvar);
 
@@ -263,18 +271,17 @@ namespace dharma_vm {
 		string function_name;
 		vector<string> function_code;
 		vector<string> function_argument_list;
-		shared_ptr<runtime_variable> function_variable;
 		bool va_args;
 		bool lambda;
 	public:
-		function(string fn, vector<string> fc, vector<string> fal, shared_ptr<runtime_variable> fv, bool va, bool l);
+		function(string fn, vector<string> fc, vector<string> fal, bool va, bool l);
 		~function();
 		string get_function_name();
 		vector<string> get_function_code();
 		vector<string> get_function_argument_list();
-		shared_ptr<runtime_variable> get_function_variable();
 		const bool get_va_args();
 		const bool is_lambda();
+		shared_ptr<function> set_function(shared_ptr<function> f);
 	};
 
 	class builtins {
@@ -282,49 +289,51 @@ namespace dharma_vm {
 			const static string builtin__va_args__;
 			const static string va_args_function_parameter;
 			const static string builtin_print;
+			const static string builtin_exit;
+			const static string builtin__global__;
 	};
 
 	class runtime {
 		vector<shared_ptr<runtime_variable>> instruction_list;
-		vector<shared_ptr<function>> function_list;
 		vector<string> string_instruction_list;
 		const static string runtime_temporary_prefix;
 		int runtime_temporary_count;
 		vector<vector<shared_ptr<runtime_variable>>> stacked_function_instruction_list;
 		vector<vector<shared_ptr<runtime_variable>>> scope_stack;
-		vector<shared_ptr<function>> added_lambda_function_list;
+		vector<vector<shared_ptr<runtime_variable>>> module_stack;
 		vector<shared_ptr<runtime_variable>> added_lambda_instruction_list;
 
 		vector<string> parse_instruction(string insn);
 		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
 		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist, bool dmov_override = false);
 		const bool function_pass();
-		shared_ptr<runtime_variable> run_function(shared_ptr<function> func, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list);
+		shared_ptr<runtime_variable> run_function(vector<shared_ptr<function>> func_list, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list, shared_ptr<runtime> r);
 		shared_ptr<runtime_variable> checked_insertion(shared_ptr<runtime_variable> rvar);
 		const bool struct_pass();
 		const bool enum_pass();
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
+		shared_ptr<runtime_variable> exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message);
 		public:
-			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<shared_ptr<function>> fl, vector<vector<shared_ptr<runtime_variable>>> sfil,
-				vector<vector<shared_ptr<runtime_variable>>> ls);
+			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<vector<shared_ptr<runtime_variable>>> sfil,
+				vector<vector<shared_ptr<runtime_variable>>> ls, vector<vector<shared_ptr<runtime_variable>>> ms, vector<shared_ptr<runtime_variable>> alil);
 			~runtime();
 			shared_ptr<runtime_variable> run_program();
 			bool dump_runtime_variables(vector<shared_ptr<runtime_variable>> insn_list);
-			pair<shared_ptr<runtime_variable>, bool> find_instruction(string ident);
+			pair<shared_ptr<runtime_variable>, bool> find_instruction(string ident, pair<bool,bool> limits = make_pair(false, false));
 			pair<shared_ptr<runtime_variable>, bool> find_instruction(int reg);
 			vector<shared_ptr<runtime_variable>> get_instruction_list();
-			vector<shared_ptr<function>> get_function_list();
 			vector<shared_ptr<runtime_variable>> set_instruction_list(vector<shared_ptr<runtime_variable>> insn_list);
-			vector<shared_ptr<function>> set_function_list(vector<shared_ptr<function>> fn_list);
 			vector<vector<shared_ptr<runtime_variable>>> get_stacked_function_instruction_list();
 			vector<vector<shared_ptr<runtime_variable>>> get_scope_stack();
 			vector<vector<shared_ptr<runtime_variable>>> set_stacked_function_instruction_list(vector<vector<shared_ptr<runtime_variable>>> sfil);
 			vector<vector<shared_ptr<runtime_variable>>> set_scope_stack(vector<vector<shared_ptr<runtime_variable>>> ssl);
 			vector<string> get_string_instruction_list();
 			vector<string> set_string_instruction_list(vector<string> vec);
+			vector<vector<shared_ptr<runtime_variable>>> get_module_stack();
+			vector<vector<shared_ptr<runtime_variable>>> set_module_stack(vector<vector<shared_ptr<runtime_variable>>> ms);
+			vector<shared_ptr<runtime_variable>> set_added_lambda_instruction_list(vector<shared_ptr<runtime_variable>> alil);
 			vector<shared_ptr<runtime_variable>> get_added_lambda_instruction_list();
-			vector<shared_ptr<function>> get_added_lambda_function_list();
 	};
 }
 

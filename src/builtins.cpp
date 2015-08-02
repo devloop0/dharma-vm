@@ -74,8 +74,26 @@ namespace dharma_vm {
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 		shared_ptr<runtime_variable> ret = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
-			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<shared_ptr<function>>(),
-				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>()), type_information_list::_boolean);
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information_list::_boolean,
+				vector<shared_ptr<function>>());
 		return checked_insertion(ret);
+	}
+
+	shared_ptr<runtime_variable> runtime::exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message) {
+		if (exit_code == nullptr || message == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		if (exit_code->get_type_information() != type_information_list::_int)
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, exit_code);
+		if (message->get_type_information() != type_information_list::_string)
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, message);
+		cerr << message->get_string() << '\n';
+		std::exit(exit_code->get_integer());
+		shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information_list::_boolean, 
+				vector<shared_ptr<function>>());
+		runtime_temporary_count++;
+		return checked_insertion(created_bool);
 	}
 }
