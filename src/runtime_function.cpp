@@ -188,11 +188,12 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> ret = nullptr;
 		if (func->is_lambda()) {
 			fvar->get_module_runtime()->scope_stack.push_back(temp);
-			ret = fvar->get_module_runtime()->run_program();
+			shared_ptr<runtime> r = fvar->get_module_runtime();
+			runtime run(func->get_function_code(), r->instruction_list, r->stacked_function_instruction_list, r->scope_stack, r->module_stack,
+				r->added_lambda_instruction_list);
+			ret = run.run_program();
 			fvar->get_module_runtime()->scope_stack.pop_back();
 			vector<shared_ptr<runtime_variable>> temp1 = fvar->get_module_runtime()->get_added_lambda_instruction_list();
-			instruction_list.insert(instruction_list.end(), temp1.begin(), temp1.end());
-			fvar->get_module_runtime()->added_lambda_instruction_list.clear();
 		}
 		else {
 			r == nullptr ? stacked_function_instruction_list.push_back(temp) : r->stacked_function_instruction_list.push_back(temp);
