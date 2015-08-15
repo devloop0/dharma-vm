@@ -10,6 +10,10 @@
 #include <tuple>
 #include <regex>
 #include <sstream>
+#include <chrono>
+#include "includes/unified.hpp"
+#include "includes/file.hpp"
+#include "includes/vm.hpp"
 
 using std::cout;
 using std::string;
@@ -32,119 +36,57 @@ using std::stringstream;
 using std::getline;
 using std::for_each;
 
+using namespace unified_includes;
+using namespace std::chrono;
+
 namespace dharma_vm {
 
 	class function;
-	class type_information;
+	class runtime_type_information;
 	class runtime;
 
-	class vm_instruction_list {
+	class runtime_type_information_list {
 	public:
-		const static string mov;
-		const static string inc;
-		const static string dec;
-		const static string cmpl;
-		const static string neg;
-		const static string pos;
-		const static string bneg;
-		const static string tyof;
-		const static string add;
-		const static string mul;
-		const static string div;
-		const static string mod;
-		const static string exp;
-		const static string sub;
-		const static string shl;
-		const static string shr;
-		const static string equ;
-		const static string nequ;
-		const static string gt;
-		const static string lt;
-		const static string gte;
-		const static string lte;
-		const static string band;
-		const static string bor;
-		const static string exor;
-		const static string lor;
-		const static string land;
-		const static string cast;
-		const static string exit;
-		const static string jmp;
-		const static string list;
-		const static string tupl;
-		const static string dict;
-		const static string func;
-		const static string efunc;
-		const static string struc;
-		const static string estruc;
-		const static string istruc;
-		const static string module;
-		const static string imodule;
-		const static string emodule;
-		const static string imov;
-		const static string ret;
-		const static string _enum;
-		const static string ifunc;
-		const static string scope;
-		const static string escope;
-		const static string dmov;
-		const static string lambda;
-		const static string ilambda;
-		const static string elambda;
-		const static string brk;
-		const static string cont;
+		const static runtime_type_information _int;
+		const static runtime_type_information _decimal;
+		const static runtime_type_information _boolean;
+		const static runtime_type_information _string;
+		const static runtime_type_information _list;
+		const static runtime_type_information _tuple;
+		const static runtime_type_information _dict;
+		const static runtime_type_information _pure_int;
+		const static runtime_type_information _pure_decimal;
+		const static runtime_type_information _pure_string;
+		const static runtime_type_information _pure_boolean;
+		const static runtime_type_information _pure_list;
+		const static runtime_type_information _pure_tuple;
+		const static runtime_type_information _pure_dict;
+		const static runtime_type_information _pure_nil;
+		const static runtime_type_information _nil;
+		const static runtime_type_information bad;
+		const static runtime_type_information _func;
+		const static runtime_type_information _pure_func;
 	};
 
-	class type_information_list {
-	public:
-		const static type_information _int;
-		const static type_information _decimal;
-		const static type_information _boolean;
-		const static type_information _string;
-		const static type_information _list;
-		const static type_information _tuple;
-		const static type_information _dict;
-		const static type_information _pure_int;
-		const static type_information _pure_decimal;
-		const static type_information _pure_string;
-		const static type_information _pure_boolean;
-		const static type_information _pure_list;
-		const static type_information _pure_tuple;
-		const static type_information _pure_dict;
-		const static type_information _pure_nil;
-		const static type_information _nil;
-		const static type_information bad;
-		const static type_information _func;
-		const static type_information _pure_func;
-	};
-
-	enum type_kind {
+	enum runtime_type_kind {
 		TYPE_INT, TYPE_DECIMAL, TYPE_BOOLEAN, TYPE_STRING, TYPE_LIST, TYPE_TUPLE, TYPE_DICT, TYPE_NIL, TYPE_FUNC,
 		TYPE_ENUM, TYPE_ENUM_CHILD, TYPE_CUSTOM, TYPE_MODULE, TYPE_NONE
 	};
 
-	enum type_pure_kind {
-		TYPE_PURE_YES, TYPE_PURE_NO, TYPE_PURE_NONE
-	};
-
-	enum type_class_kind {
-		TYPE_CLASS_YES, TYPE_CLASS_NO, TYPE_CLASS_NONE
-	};
-
-	class type_information {
-		type_kind t_kind;
+	class runtime_type_information {
+		runtime_type_kind t_kind;
 		type_pure_kind tp_kind;
 		type_class_kind tc_kind;
 		string class_name;
 	public:
-		type_information(type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn);
-		~type_information();
-		const type_kind get_type_kind();
+		runtime_type_information(runtime_type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn);
+		~runtime_type_information();
+		const runtime_type_kind get_runtime_type_kind();
 		const type_pure_kind get_type_pure_kind();
 		const type_class_kind get_type_class_kind();
 		string get_class_name();
-		const bool operator==(type_information ti);
-		const bool operator!=(type_information ti);
+		const bool operator==(runtime_type_information ti);
+		const bool operator!=(runtime_type_information ti);
 	};
 
 	enum storage_field_kind {
@@ -174,13 +116,15 @@ namespace dharma_vm {
 		pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> dict;
 		vector<shared_ptr<runtime_variable>> struct_enum_member_list;
 		shared_ptr<runtime> module_runtime;
-		type_information t_inf;
+		runtime_type_information t_inf;
 		storage_field s_field;
 		bool unmodifiable;
 		vector<shared_ptr<function>> func;
+		unsigned long long unique_id;
+		unsigned long long enum_parent_unique_id;
 	public:
 		runtime_variable(storage_field s_field, int i, float d, string s, bool b, vector<shared_ptr<runtime_variable>> lt, pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> di,
-			vector<shared_ptr<runtime_variable>> sml, shared_ptr<runtime> mr, type_information ti, vector<shared_ptr<function>> fl);
+			vector<shared_ptr<runtime_variable>> sml, shared_ptr<runtime> mr, runtime_type_information ti, vector<shared_ptr<function>> fl);
 		~runtime_variable();
 		int get_integer();
 		float get_decimal();
@@ -194,21 +138,22 @@ namespace dharma_vm {
 		bool set_boolean(bool b);
 		vector<shared_ptr<runtime_variable>> set_list_tuple(vector<shared_ptr<runtime_variable>> lt);
 		pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> set_dict(pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> d);
-		type_information get_type_information();
-		type_information set_type_information(type_information t);
+		runtime_type_information get_runtime_type_information();
+		runtime_type_information set_runtime_type_information(runtime_type_information t);
 		storage_field get_storage_field();
 		const bool get_unmodifiable();
 		bool set_unmodifiable(bool b);
 		vector<shared_ptr<runtime_variable>> get_struct_enum_member_list();
-		vector<shared_ptr<runtime_variable>> set_struct_enum_member_list(vector<shared_ptr<runtime_variable>> sml);
+		vector<shared_ptr<runtime_variable>> set_struct_enum_member_list(vector<shared_ptr<runtime_variable>> sml, long ui, bool deep = false);
 		shared_ptr<runtime> get_module_runtime();
-		shared_ptr<runtime> set_module_runtime(shared_ptr<runtime> mr);
-		storage_field set_storage_field(storage_field sf);
-		shared_ptr<runtime_variable> function_parameter_mov(shared_ptr<runtime_variable> &rvar);
-		shared_ptr<runtime> deep_copy_module_runtime(shared_ptr<runtime> r);
-		vector<shared_ptr<function>> set_function(vector<shared_ptr<function>> fl);
+		shared_ptr<runtime> set_module_runtime(shared_ptr<runtime> mr, long ui, bool deep = false);
+		vector<shared_ptr<function>> set_function(vector<shared_ptr<function>> fl, long ui);
 		vector<shared_ptr<function>> get_function();
 		vector<shared_ptr<function>> add_function(shared_ptr<function> f);
+		unsigned long long set_unique_id(unsigned long long ui);
+		unsigned long long get_unique_id();
+		unsigned long long set_enum_parent_unique_id(unsigned long long ui);
+		unsigned long long get_enum_parent_unique_id();
 	};
 
 	const bool equals_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -222,6 +167,7 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> operator&(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator|(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> pow(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	
 	shared_ptr<runtime_variable> operator<(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator>(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator>=(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -232,13 +178,14 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> operator||(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator!(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> operator-(shared_ptr<runtime_variable> dest);
+	shared_ptr<runtime_variable> operator+(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> operator~(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> tyof(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> cast(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
-	shared_ptr<runtime_variable> mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	shared_ptr<runtime_variable> mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src, bool dmov);
 	shared_ptr<runtime_variable> inc(shared_ptr<runtime_variable> dest);
 	shared_ptr<runtime_variable> dec(shared_ptr<runtime_variable> dest);
-	shared_ptr<runtime_variable> strict_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	shared_ptr<runtime_variable> strict_mov(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src, bool dmov);
 	const bool operator==(shared_ptr<function> dest, shared_ptr<function> src);
 
 	bool report_error_and_terminate_program(string msg, shared_ptr<runtime_variable> rvar);
@@ -256,6 +203,8 @@ namespace dharma_vm {
 		const static string field_not_found;
 		const static string function_overload_not_found;
 		const static string structure_members_are_initialized_early;
+		const static string import_file_not_found;
+		const static string import_file_not_found_but_source_file_present;
 	};
 
 	const vector<string> list_field_list = { "size" };
@@ -284,15 +233,6 @@ namespace dharma_vm {
 		shared_ptr<function> set_function(shared_ptr<function> f);
 	};
 
-	class builtins {
-		public:
-			const static string builtin__va_args__;
-			const static string va_args_function_parameter;
-			const static string builtin_print;
-			const static string builtin_exit;
-			const static string builtin__global__;
-	};
-
 	class runtime {
 		vector<shared_ptr<runtime_variable>> instruction_list;
 		vector<string> string_instruction_list;
@@ -304,7 +244,7 @@ namespace dharma_vm {
 		vector<shared_ptr<runtime_variable>> added_lambda_instruction_list;
 
 		vector<string> parse_instruction(string insn);
-		tuple<string, register_identifier_kind, type_kind> deduce_register_identifier_kind(string ident);
+		tuple<string, register_identifier_kind, runtime_type_kind> deduce_register_identifier_kind(string ident);
 		shared_ptr<runtime_variable> deduce_runtime_variable(string ident, bool must_exist, bool dmov_override = false);
 		const bool function_pass();
 		shared_ptr<runtime_variable> run_function(vector<shared_ptr<function>> func_list, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list, shared_ptr<runtime> r);
@@ -314,6 +254,8 @@ namespace dharma_vm {
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		shared_ptr<runtime_variable> exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message);
+
+		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_builtin_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:
 			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<vector<shared_ptr<runtime_variable>>> sfil,
 				vector<vector<shared_ptr<runtime_variable>>> ls, vector<vector<shared_ptr<runtime_variable>>> ms, vector<shared_ptr<runtime_variable>> alil);

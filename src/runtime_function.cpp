@@ -1,4 +1,4 @@
-#include "../includes/runtime.hpp"
+#include "includes/runtime.hpp"
 
 namespace dharma_vm {
 
@@ -69,7 +69,7 @@ namespace dharma_vm {
 				}
 				i--;
 			}
-			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::func || insn_list[0] == vm_instruction_list::ifunc)) {
+			else if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::func || insn_list[0] == vm_instruction_list::ifunc)) {
 				string fname = insn_list[1];
 				vector<string> fal_temp(insn_list.begin() + 2, insn_list.end());
 				bool va_args = false;
@@ -96,7 +96,7 @@ namespace dharma_vm {
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, fname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, fname, false,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 					make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(),
-						vector<shared_ptr<runtime_variable>>()), type_information_list::_func, vector<shared_ptr<function>> { f });
+						vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { f });
 				if (insn_list[0] == vm_instruction_list::ifunc)
 					rvar->set_unmodifiable(true);
 				bool added = false;
@@ -148,7 +148,7 @@ namespace dharma_vm {
 					print(argument_list[i]);
 				shared_ptr<runtime_variable> created_bool = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
-						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information_list::_boolean,
+						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_boolean,
 					vector<shared_ptr<function>>());
 				runtime_temporary_count++;
 				return checked_insertion(created_bool);
@@ -161,24 +161,28 @@ namespace dharma_vm {
 		if (func->get_va_args()) {
 			vector<shared_ptr<runtime_variable>> excess_argument_list;
 			for (int i = func->get_function_argument_list().size(); i < argument_list.size(); i++) {
-				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(argument_list[i]->get_storage_field(), argument_list[i]->get_integer(), argument_list[i]->get_decimal(), argument_list[i]->get_string(), argument_list[i]->get_boolean(),
-					argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_enum_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information(), argument_list[i]->get_function());
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(argument_list[i]->get_storage_field(), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
+					pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), argument_list[i]->get_runtime_type_information(), vector<shared_ptr<function>>());
+				rvar = mov(rvar, argument_list[i], false);
 				excess_argument_list.push_back(rvar);
 			}
 			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER, true), -1, -1, "", false, excess_argument_list,
 				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
-					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information_list::_tuple, vector<shared_ptr<function>>()));
+					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_tuple, vector<shared_ptr<function>>()));
 		}
 		else {
 			if (func->get_function_argument_list().size() != argument_list.size())
 				report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, fvar);
 			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER, true), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
 				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
-					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information_list::_tuple, vector<shared_ptr<function>>()));
+					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_tuple, vector<shared_ptr<function>>()));
 		}
 		for (int i = 0; i < vec.size(); i++) {
-			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, vec[i].substr(1, vec[i].length() - 2), storage_field_kind::STORAGE_FIELD_IDENTIFIER), argument_list[i]->get_integer(), argument_list[i]->get_decimal(), argument_list[i]->get_string(), argument_list[i]->get_boolean(),
-				argument_list[i]->get_list_tuple(), argument_list[i]->get_dict(), argument_list[i]->get_struct_enum_member_list(), argument_list[i]->get_module_runtime(), argument_list[i]->get_type_information(), argument_list[i]->get_function());
+			shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, vec[i].substr(1, vec[i].length() - 2), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
+				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), argument_list[i]->get_runtime_type_information(), vector<shared_ptr<function>>());
+			rvar = mov(rvar, argument_list[i], false);
 			temp.push_back(rvar);
 		}
 		shared_ptr<runtime_variable> ret = nullptr;
@@ -204,30 +208,36 @@ namespace dharma_vm {
 	}
 
 	const bool runtime::struct_pass() {
-		int save_begin = scope_stack.size() > 0 ? scope_stack[scope_stack.size() - 1].size() : (stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size());
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> insn_list = parse_instruction(string_instruction_list[i]);
-			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::struc || insn_list[0] == vm_instruction_list::istruc)) {
-				string sname = insn_list[1];
-				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, sname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
-					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr, type_information(type_kind::TYPE_CUSTOM, type_pure_kind::TYPE_PURE_NO,
-						type_class_kind::TYPE_CLASS_YES, sname), vector<shared_ptr<function>>());
-				if (insn_list[0] == vm_instruction_list::istruc)
-					rvar->set_unmodifiable(true);
-				checked_insertion(rvar);
+			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::module || insn_list[0] == vm_instruction_list::imodule)) {
+				i++;
+				int module_balance = 0;
+				while (i < string_instruction_list.size()) {
+					vector<string> temp = parse_instruction(string_instruction_list[i]);
+					if (temp.size() > 0 && (temp[0] == vm_instruction_list::imodule || temp[0] == vm_instruction_list::module))
+						module_balance++;
+					if (temp.size() > 0 && temp[0] == vm_instruction_list::emodule) {
+						if (module_balance == 0)
+							break;
+						else
+							module_balance--;
+					}
+					i++;
+				}
+				i--;
 			}
-		}
-		int save_end = scope_stack.size() > 0 ? scope_stack[scope_stack.size() - 1].size() : (stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size());
-		for (int i = 0; i < string_instruction_list.size(); i++) {
-			vector<string> insn_list = parse_instruction(string_instruction_list[i]);
-			if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::struc || insn_list[0] == vm_instruction_list::istruc)) {
+			else if (insn_list.size() > 0 && (insn_list[0] == vm_instruction_list::struc || insn_list[0] == vm_instruction_list::istruc)) {
 				string sname = insn_list[1];
 				vector<string> member_list(insn_list.begin() + 2, insn_list.end());
-				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, sname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
-					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr, 
-					type_information(type_kind::TYPE_CUSTOM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, sname), vector<shared_ptr<function>>());
-				if (insn_list[0] == vm_instruction_list::istruc)
+				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, sname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, sname, false,
+					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr,
+					runtime_type_information(runtime_type_kind::TYPE_CUSTOM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, sname), vector<shared_ptr<function>>());
+				bool unmod = false;
+				if (insn_list[0] == vm_instruction_list::istruc) {
 					rvar->set_unmodifiable(true);
+					unmod = true;
+				}
 				vector<string> struct_code;
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				int save = scope_stack.size() > 0 ? scope_stack[scope_stack.size() - 1].size() : (stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].size() : instruction_list.size());
@@ -242,55 +252,48 @@ namespace dharma_vm {
 				}
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				i--;
-				runtime r(struct_code, instruction_list, stacked_function_instruction_list, vector<vector<shared_ptr<runtime_variable>>>(), module_stack, added_lambda_instruction_list);
+				scope_stack.push_back(vector<shared_ptr<runtime_variable>>());
+				runtime r(struct_code, instruction_list, stacked_function_instruction_list, scope_stack, module_stack, added_lambda_instruction_list);
 				shared_ptr<runtime_variable> rv = r.run_program();
-				if (scope_stack.size() > 0)
-					scope_stack[scope_stack.size() - 1].insert(scope_stack[scope_stack.size() - 1].end(), r.instruction_list.begin(), r.instruction_list.end());
-				else if (stacked_function_instruction_list.size() > 0)
-					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].insert(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end(),
-						r.instruction_list.begin(), r.instruction_list.end());
-				else
-					instruction_list.insert(instruction_list.end(), r.instruction_list.begin(), r.instruction_list.end());
-				for_each(scope_stack.size() > 0 ? scope_stack[scope_stack.size() - 1].begin() + save : (stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save : instruction_list.begin() + save),
-					scope_stack.size() > 0 ? scope_stack[scope_stack.size() - 1].end() : (stacked_function_instruction_list.size() > 0 ? stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end() : instruction_list.end()), [&](shared_ptr<runtime_variable> rvar) {
+				for_each(r.scope_stack[scope_stack.size() - 1].begin(), r.scope_stack[scope_stack.size() - 1].end(), [&](shared_ptr<runtime_variable> rvar) {
 					if (rvar->get_storage_field().get_storage_field_kind() == storage_field_kind::STORAGE_FIELD_REGISTER_NUMBER);
 					else {
 						bool found = find(member_list.begin(), member_list.end(), rvar->get_storage_field().get_identifier()) != member_list.end();
 						if (found) {
-							if (rvar->get_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
-								rvar->get_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_NO);
+							if (rvar->get_runtime_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES &&
+								rvar->get_runtime_type_information().get_type_class_kind() == type_class_kind::TYPE_CLASS_NO);
 							else
 								report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
-							if (rvar->get_type_information() == type_information_list::_pure_int) {
+							if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_int) {
 								rvar->set_integer(0);
-								rvar->set_type_information(type_information_list::_int);
+								rvar->set_runtime_type_information(runtime_type_information_list::_int);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_decimal) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_decimal) {
 								rvar->set_decimal(0.0);
-								rvar->set_type_information(type_information_list::_decimal);
+								rvar->set_runtime_type_information(runtime_type_information_list::_decimal);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_string) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_string) {
 								rvar->set_string("");
-								rvar->set_type_information(type_information_list::_string);
+								rvar->set_runtime_type_information(runtime_type_information_list::_string);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_boolean) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_boolean) {
 								rvar->set_boolean(false);
-								rvar->set_type_information(type_information_list::_boolean);
+								rvar->set_runtime_type_information(runtime_type_information_list::_boolean);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_list) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_list) {
 								rvar->set_list_tuple(vector<shared_ptr<runtime_variable>>());
-								rvar->set_type_information(type_information_list::_list);
+								rvar->set_runtime_type_information(runtime_type_information_list::_list);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_tuple) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_tuple) {
 								rvar->set_list_tuple(vector<shared_ptr<runtime_variable>>());
-								rvar->set_type_information(type_information_list::_tuple);
+								rvar->set_runtime_type_information(runtime_type_information_list::_tuple);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_dict) {
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_dict) {
 								rvar->set_dict(pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>());
-								rvar->set_type_information(type_information_list::_dict);
+								rvar->set_runtime_type_information(runtime_type_information_list::_dict);
 							}
-							else if (rvar->get_type_information() == type_information_list::_pure_func) {
-								rvar->set_type_information(type_information_list::_func);
+							else if (rvar->get_runtime_type_information() == runtime_type_information_list::_pure_func) {
+								rvar->set_runtime_type_information(runtime_type_information_list::_func);
 							}
 							else
 								report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
@@ -298,50 +301,57 @@ namespace dharma_vm {
 						}
 					}
 				});
-				if (stacked_function_instruction_list.size() > 0)
-					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save, stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].end());
-				else
-					instruction_list.erase(instruction_list.begin() + save, instruction_list.end());
 				if (member_list.size() != rvar_list.size())
 					report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
-				rvar->set_struct_enum_member_list(rvar_list);
-				if (stacked_function_instruction_list.size() > 0)
-					stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].push_back(rvar);
-				else
-					instruction_list.push_back(rvar);
+				for (int i = 0; i < rvar_list.size(); i++)
+					rvar_list[i]->set_unmodifiable(unmod);
+				rvar->set_struct_enum_member_list(rvar_list, rvar->get_unique_id());
+				scope_stack.pop_back();
+				checked_insertion(rvar);
 			}
 		}
-		if (scope_stack.size() > 0)
-			scope_stack[scope_stack.size() - 1].erase(scope_stack[scope_stack.size() - 1].begin() + save_begin, scope_stack[scope_stack.size() - 1].begin() + save_end);
-		else if (stacked_function_instruction_list.size() > 0)
-			stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].erase(stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save_begin,
-				stacked_function_instruction_list[stacked_function_instruction_list.size() - 1].begin() + save_end);
-		else
-			instruction_list.erase(instruction_list.begin() + save_begin, instruction_list.begin() + save_end);
 		return true;
 	}
 
 	const bool runtime::enum_pass() {
 		for (int i = 0; i < string_instruction_list.size(); i++) {
 			vector<string> insn = parse_instruction(string_instruction_list[i]);
-			if (insn.size() > 0 && insn[0] == vm_instruction_list::_enum) {
+			if (insn.size() > 0 && (insn[0] == vm_instruction_list::module || insn[0] == vm_instruction_list::imodule)) {
+				i++;
+				int module_balance = 0;
+				while (i < string_instruction_list.size()) {
+					vector<string> temp = parse_instruction(string_instruction_list[i]);
+					if (temp.size() > 0 && (temp[0] == vm_instruction_list::imodule || temp[0] == vm_instruction_list::module))
+						module_balance++;
+					if (temp.size() > 0 && temp[0] == vm_instruction_list::emodule) {
+						if (module_balance == 0)
+							break;
+						else
+							module_balance--;
+					}
+					i++;
+				}
+				i--;
+			}
+			else if (insn.size() > 0 && insn[0] == vm_instruction_list::_enum) {
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[1], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[1], false,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
-						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
-							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information(type_kind::TYPE_ENUM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, insn[1]),
-							vector<shared_ptr<function>>());
+					make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+						vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information(runtime_type_kind::TYPE_ENUM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, insn[1]),
+					vector<shared_ptr<function>>());
 				vector<shared_ptr<runtime_variable>> vec;
 				for (int i = 2; i < insn.size(); i++) {
-					shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, insn[i], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[i], false,
+					shared_ptr<runtime_variable> rv = make_shared<runtime_variable>(storage_field(-1, insn[i], storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, insn[i], false,
 						vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 						make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
-							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), type_information(type_kind::TYPE_ENUM_CHILD, type_pure_kind::TYPE_PURE_NO,
-						type_class_kind::TYPE_CLASS_YES, insn[1]), vector<shared_ptr<function>>());
-					rvar->set_unmodifiable(true);
-					vec.push_back(rvar);
+							vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information(runtime_type_kind::TYPE_ENUM_CHILD, type_pure_kind::TYPE_PURE_NO,
+								type_class_kind::TYPE_CLASS_YES, insn[1]), vector<shared_ptr<function>>());
+					rv->set_unmodifiable(true);
+					rv->set_enum_parent_unique_id(rvar->get_unique_id());
+					vec.push_back(rv);
 				}
 				rvar->set_unmodifiable(true);
-				rvar->set_struct_enum_member_list(vec);
+				rvar->set_struct_enum_member_list(vec, rvar->get_unique_id());
 				checked_insertion(rvar);
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				i--;
