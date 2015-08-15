@@ -2414,7 +2414,7 @@ namespace dharma_vm {
 					runtime_temporary_count++;
 				}
 				else {
-					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__assign__);
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__slice__);
 					if (results.size() > 0) {
 						bool success = false;
 						for (int j = 0; j < results.size(); j++) {
@@ -3364,6 +3364,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3422,6 +3423,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3477,6 +3479,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3532,6 +3535,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3587,6 +3591,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3640,6 +3645,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3695,6 +3701,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3748,6 +3755,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3801,6 +3809,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
@@ -3854,6 +3863,7 @@ namespace dharma_vm {
 										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
 										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
 										else {
+											dest = mov(dest, temp, false);
 											success = true;
 											break;
 										}
