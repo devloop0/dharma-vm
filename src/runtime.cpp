@@ -3425,7 +3425,8 @@ namespace dharma_vm {
 						}
 						else
 							dest = mov(dest, src, op == vm_instruction_list::dmov || op == vm_instruction_list::imov);
-						dest->set_unmodifiable(op == vm_instruction_list::imov);
+						if(!dest->get_unmodifiable())
+							dest->set_unmodifiable(op == vm_instruction_list::imov);
 					}
 					else if (op == vm_instruction_list::add || op == vm_instruction_list::adde) {
 						if (op == vm_instruction_list::add) {
