@@ -3248,16 +3248,33 @@ namespace dharma_vm {
 						}
 					}
 					else if (get<2>(tup) == runtime_type_kind::TYPE_INT) {
+						string str = get<0>(tup);
+						for (int i = 0; i < str.length(); i++) {
+							if (str[i] == '\'') {
+								str.erase(i, 1);
+								i--;
+							}
+						}
+						string prefix = get<0>(tup).substr(0, 2);
+						int i;
+						if (prefix == "0x" || prefix == "0X")
+							i = strtol(str.substr(2).c_str(), nullptr, 16);
+						else if (prefix == "0b" || prefix == "0B")
+							i = strtol(str.substr(2).c_str(), nullptr, 2);
+						else if (prefix == "0o" || prefix == "0O")
+							i = strtol(str.substr(2).c_str(), nullptr, 8);
+						else
+							i = strtol(str.c_str(), nullptr, 10);
 						if (complex_test) {
 							if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
-								dest->set_integer(stoi(get<0>(tup)));
+								dest->set_integer(i);
 							else if (dest->get_runtime_type_information() == runtime_type_information_list::_decimal)
-								dest->set_decimal(stoi(get<0>(tup)));
+								dest->set_decimal(i);
 							else
 								report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
 						}
 						else {
-							dest->set_integer(stoi(get<0>(tup)));
+							dest->set_integer(i);
 							dest->set_runtime_type_information(runtime_type_information_list::_int);
 						}
 					}
