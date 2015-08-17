@@ -2298,7 +2298,7 @@ namespace dharma_vm {
 						report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, rvar);
 				}
 				else if (base->get_runtime_type_information() == runtime_type_information_list::_string) {
-					if (rvar->get_runtime_type_information() == runtime_type_information_list::_int)
+					if (rvar->get_runtime_type_information() != runtime_type_information_list::_int)
 						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 					if (rvar->get_integer() >= 0 && rvar->get_integer() < base->get_string().length()) {
 						shared_ptr<runtime_variable> created_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, string(1, base->get_string()[rvar->get_integer()]), false,
@@ -2330,8 +2330,30 @@ namespace dharma_vm {
 						report_error_and_terminate_program(runtime_diagnostic_messages::key_not_found, rvar);
 					base = base->get_dict().second[index];
 				}
-				else
-					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+				else {
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__subscript__);
+					if (results.size() > 0) {
+						bool success = false;
+						for (int j = 0; j < results.size(); j++) {
+							pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+							for (int i = 0; i < res.first->get_function().size(); i++) {
+								shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { base, rvar }, res.second);
+								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+								else {
+									base = temp;
+									success = true;
+									break;
+								}
+							}
+							if (success)
+								break;
+						}
+						if (!success)
+							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+					}
+					else
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, base);
+				}
 				if (base_immut)
 					base->set_unmodifiable(true);
 			}
@@ -2414,6 +2436,12 @@ namespace dharma_vm {
 					runtime_temporary_count++;
 				}
 				else {
+					if (start->get_runtime_type_information() != runtime_type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, start);
+					else if (end->get_runtime_type_information() != runtime_type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, end);
+					else if (step->get_runtime_type_information() != runtime_type_information_list::_int)
+						report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, step);
 					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__slice__);
 					if (results.size() > 0) {
 						bool success = false;
