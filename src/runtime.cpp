@@ -3979,7 +3979,7 @@ namespace dharma_vm {
 						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__equals_equals__);
 						runtime_type_information dtype = dest->get_runtime_type_information();
 						runtime_type_information stype = src->get_runtime_type_information();
-						if (dtype == stype || (dtype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && stype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) &&
+						if (dtype == stype || (dtype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && stype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) ||
 							((dtype == runtime_type_information_list::_int || dtype == runtime_type_information_list::_decimal) &&
 								(stype == runtime_type_information_list::_int || stype == runtime_type_information_list::_decimal)) ||
 							(dtype == runtime_type_information_list::_nil && (stype == runtime_type_information_list::_nil || stype == runtime_type_information_list::_int ||
@@ -4015,7 +4015,7 @@ namespace dharma_vm {
 						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(instruction_list, nullptr, builtins::builtin__not_equals__);
 						runtime_type_information dtype = dest->get_runtime_type_information();
 						runtime_type_information stype = src->get_runtime_type_information();
-						if (dtype == stype || (dtype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && stype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) &&
+						if (dtype == stype || (dtype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES && stype.get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES) ||
 							((dtype == runtime_type_information_list::_int || dtype == runtime_type_information_list::_decimal) &&
 								(stype == runtime_type_information_list::_int || stype == runtime_type_information_list::_decimal)) ||
 							(dtype == runtime_type_information_list::_nil && (stype == runtime_type_information_list::_nil || stype == runtime_type_information_list::_int ||
@@ -4453,12 +4453,11 @@ namespace dharma_vm {
 		shared_ptr<runtime> r, string bf) {
 		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> ret;
 		for (int i = 0; i < to_search.size(); i++) {
-			if (to_search[i]->get_string() == bf)
+			if (to_search[i]->get_string() == bf && to_search[i]->get_runtime_type_information() == runtime_type_information_list::_func)
 				ret.push_back(make_pair(to_search[i], r));
-			else if (to_search[i]->get_runtime_type_information().get_class_name().substr(0, builtins::builtin_runtime_file_module_prefix.length())
-				== builtins::builtin_runtime_file_module_prefix) {
-				vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_builtin_function(to_search[i]->get_module_runtime()->get_instruction_list(), to_search[i]->get_module_runtime(), bf);
-				ret.insert(ret.end(), results.begin(), results.end());
+			else if (to_search[i]->get_runtime_type_information().get_class_name().substr(0, builtins::builtin_runtime_file_module_prefix.length()) == builtins::builtin_runtime_file_module_prefix) {
+				vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> res = to_search[i]->get_module_runtime()->find_builtin_function(to_search[i]->get_module_runtime()->get_instruction_list(), to_search[i]->get_module_runtime(), bf);
+				ret.insert(ret.end(), res.begin(), res.end());
 			}
 		}
 		return ret;

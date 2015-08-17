@@ -90,6 +90,8 @@ namespace dharma_vm {
 					if (success)
 						break;
 				}
+				if(!success)
+					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 			}
 			else if (!success) {
 				if (rvar->get_runtime_type_information().get_runtime_type_kind() == runtime_type_kind::TYPE_CUSTOM && rvar->get_runtime_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO)
