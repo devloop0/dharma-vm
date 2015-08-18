@@ -1929,13 +1929,16 @@ namespace dharma_vm {
 					return false;
 				if (dest->get_struct_enum_member_list().size() != src->get_struct_enum_member_list().size())
 					return false;
-				vector<shared_ptr<runtime_variable>> dest_list = dest->get_struct_enum_member_list();
-				vector<shared_ptr<runtime_variable>> src_list = src->get_struct_enum_member_list();
-				for (int i = 0; i < dest_list.size(); i++) {
-					shared_ptr<runtime_variable> dvar = dest_list[i];
-					shared_ptr<runtime_variable> svar = src_list[i];
-					bool store = equals_equals(dvar, svar);
-					if (!store)
+				vector<shared_ptr<runtime_variable>> dsource = dest->get_struct_enum_member_list();
+				vector<shared_ptr<runtime_variable>> ssource = src->get_struct_enum_member_list();
+				for (int i = 0; i < dsource.size(); i++) {
+					shared_ptr<runtime_variable> dvar = make_shared<runtime_variable>(dsource[i]->get_storage_field(), dsource[i]->get_integer(), dsource[i]->get_decimal(), dsource[i]->get_string(),
+						dsource[i]->get_boolean(), dsource[i]->get_list_tuple(), dsource[i]->get_dict(), dsource[i]->get_struct_enum_member_list(), dsource[i]->get_module_runtime(), dsource[i]->get_runtime_type_information(),
+						dsource[i]->get_function());
+					dvar->set_unmodifiable(dsource[i]->get_unmodifiable());
+					dvar->set_unique_id(dsource[i]->get_unique_id());
+					shared_ptr<runtime_variable> svar = ssource[i];
+					if (!((dvar == svar)->get_boolean()))
 						return false;
 				}
 				return true;
@@ -1981,7 +1984,6 @@ namespace dharma_vm {
 						vector<shared_ptr<runtime_variable>> ssource = sto_loop[j];
 						if (dsource.size() != ssource.size())
 							return false;
-
 						for (int i = 0; i < dsource.size(); i++) {
 							shared_ptr<runtime_variable> dvar = make_shared<runtime_variable>(dsource[i]->get_storage_field(), dsource[i]->get_integer(), dsource[i]->get_decimal(), dsource[i]->get_string(),
 								dsource[i]->get_boolean(), dsource[i]->get_list_tuple(), dsource[i]->get_dict(), dsource[i]->get_struct_enum_member_list(), dsource[i]->get_module_runtime(), dsource[i]->get_runtime_type_information(),
@@ -2030,7 +2032,7 @@ namespace dharma_vm {
 			else
 				return false;
 		}
-		else if (dest->get_runtime_type_information() == src->get_runtime_type_information())
+		else if (dest->get_runtime_type_information() == src->get_runtime_type_information() && dest->get_unique_id() == src->get_unique_id())
 			return true;
 		else
 			return false;
