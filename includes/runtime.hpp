@@ -97,14 +97,12 @@ namespace dharma_vm {
 		int register_number;
 		string identifier;
 		storage_field_kind sf_kind;
-		bool builtin;
 	public:
-		storage_field(int rn, string i, storage_field_kind sfk, bool b = false);
+		storage_field(int rn, string i, storage_field_kind sfk);
 		~storage_field();
 		int get_register_number();
 		string get_identifier();
 		storage_field_kind get_storage_field_kind();
-		const bool is_builtin();
 	};
 
 	class runtime_variable {
@@ -154,6 +152,7 @@ namespace dharma_vm {
 		unsigned long long get_unique_id();
 		unsigned long long set_enum_parent_unique_id(unsigned long long ui);
 		unsigned long long get_enum_parent_unique_id();
+		storage_field set_storage_field(storage_field sf);
 	};
 
 	const bool equals_equals(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -200,6 +199,7 @@ namespace dharma_vm {
 		const static string subscript_out_of_range;
 		const static string unmodifiable_value;
 		const static string key_not_found;
+		const static string key_already_exists;
 		const static string field_not_found;
 		const static string function_overload_not_found;
 		const static string structure_members_are_initialized_early;
@@ -222,8 +222,9 @@ namespace dharma_vm {
 		vector<string> function_argument_list;
 		bool va_args;
 		bool lambda;
+		bool builtin;
 	public:
-		function(string fn, vector<string> fc, vector<string> fal, bool va, bool l);
+		function(string fn, vector<string> fc, vector<string> fal, bool va, bool l, bool b);
 		~function();
 		string get_function_name();
 		vector<string> get_function_code();
@@ -231,6 +232,7 @@ namespace dharma_vm {
 		const bool get_va_args();
 		const bool is_lambda();
 		shared_ptr<function> set_function(shared_ptr<function> f);
+		const bool is_builtin();
 	};
 
 	class runtime {
@@ -254,6 +256,8 @@ namespace dharma_vm {
 
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		shared_ptr<runtime_variable> exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message);
+		shared_ptr<runtime_variable> add(shared_ptr<runtime_variable> dict, shared_ptr<runtime_variable> key, shared_ptr<runtime_variable> value);
+		shared_ptr<runtime_variable> add(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> element);
 
 		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_builtin_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:

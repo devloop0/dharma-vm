@@ -2,12 +2,13 @@
 
 namespace dharma_vm {
 
-	function::function(string fn, vector<string> fc, vector<string> fal, bool va, bool l) {
+	function::function(string fn, vector<string> fc, vector<string> fal, bool va, bool l, bool b) {
 		function_name = fn;
 		function_code = fc;
 		function_argument_list = fal;
 		va_args = va;
 		lambda = l;
+		builtin = b;
 	}
 
 	function::~function() {
@@ -32,6 +33,10 @@ namespace dharma_vm {
 
 	const bool function::is_lambda() {
 		return lambda;
+	}
+
+	const bool function::is_builtin() {
+		return builtin;
 	}
 
 	shared_ptr<function> function::set_function(shared_ptr<function> f) {
@@ -92,7 +97,7 @@ namespace dharma_vm {
 				}
 				string_instruction_list.erase(string_instruction_list.begin() + i, string_instruction_list.begin() + i + 1);
 				i--;
-				shared_ptr<function> f = make_shared<function>(fname, function_code, fal, va_args, false);
+				shared_ptr<function> f = make_shared<function>(fname, function_code, fal, va_args, false, false);
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, fname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, fname, false,
 					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 					make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(),
@@ -110,8 +115,23 @@ namespace dharma_vm {
 					func_list.push_back(rvar);
 			}
 		}
-		for (int i = 0; i < func_list.size(); i++)
-			checked_insertion(func_list[i]);
+		for (int i = 0; i < func_list.size(); i++) {
+			string str = func_list[i]->get_string();
+			if (str == builtins::builtin_add || str == builtins::builtin_exit || str == builtins::builtin_print) {
+				pair<shared_ptr<runtime_variable>, bool> res = make_pair(nullptr, false);
+				if (module_stack.size() > 0);
+				else
+					res = find_instruction(str);
+				if (res.second) {
+					for (int j = 0; j < func_list[i]->get_function().size(); j++)
+						res.first->add_function(func_list[i]->get_function()[j]);
+				}
+				else
+					checked_insertion(func_list[i]);
+			}
+			else
+				checked_insertion(func_list[i]);
+		}
 		return true;
 	}
 
@@ -142,7 +162,7 @@ namespace dharma_vm {
 		if (func->get_function_name() == fvar->get_string());
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, fvar);
-		if (fvar->get_storage_field().is_builtin()) {
+		if (func->is_builtin()) {
 			if (func->get_function_name() == builtins::builtin_print) {
 				for (int i = 0; i < argument_list.size(); i++)
 					print(argument_list[i]);
@@ -155,6 +175,10 @@ namespace dharma_vm {
 			}
 			else if (func->get_function_name() == builtins::builtin_exit && argument_list.size() == 2)
 				return exit(argument_list[0], argument_list[1]);
+			else if (func->get_function_name() == builtins::builtin_add && argument_list.size() == 3)
+				return add(argument_list[0], argument_list[1], argument_list[2]);
+			else if (func->get_function_name() == builtins::builtin_add && argument_list.size() == 2)
+				return add(argument_list[0], argument_list[1]);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();
@@ -167,14 +191,14 @@ namespace dharma_vm {
 				rvar = mov(rvar, argument_list[i], false);
 				excess_argument_list.push_back(rvar);
 			}
-			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER, true), -1, -1, "", false, excess_argument_list,
+			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, excess_argument_list,
 				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
 					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_tuple, vector<shared_ptr<function>>()));
 		}
 		else {
 			if (func->get_function_argument_list().size() != argument_list.size())
 				report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, fvar);
-			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER, true), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
+			temp.push_back(make_shared<runtime_variable>(storage_field(-1, builtins::builtin__va_args__, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false, vector<shared_ptr<runtime_variable>>(),
 				pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
 					vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_tuple, vector<shared_ptr<function>>()));
 		}
