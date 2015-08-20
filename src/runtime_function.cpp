@@ -117,7 +117,8 @@ namespace dharma_vm {
 		}
 		for (int i = 0; i < func_list.size(); i++) {
 			string str = func_list[i]->get_string();
-			if (str == builtins::builtin_add || str == builtins::builtin_exit || str == builtins::builtin_print) {
+			if (str == builtins::builtin_add || str == builtins::builtin_exit || str == builtins::builtin_print || str == builtins::builtin_insert
+				|| str == builtins::builtin_remove) {
 				pair<shared_ptr<runtime_variable>, bool> res = make_pair(nullptr, false);
 				if (module_stack.size() > 0);
 				else
@@ -179,6 +180,12 @@ namespace dharma_vm {
 				return add(argument_list[0], argument_list[1], argument_list[2]);
 			else if (func->get_function_name() == builtins::builtin_add && argument_list.size() == 2)
 				return add(argument_list[0], argument_list[1]);
+			else if (func->get_function_name() == builtins::builtin_insert && argument_list.size() == 3)
+				return insert(argument_list[0], argument_list[1], argument_list[2]);
+			else if (func->get_function_name() == builtins::builtin_remove && argument_list.size() == 3)
+				return remove(argument_list[0], argument_list[1], argument_list[2]);
+			else if (func->get_function_name() == builtins::builtin_remove && argument_list.size() == 2)
+				return remove(argument_list[0], argument_list[1]);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();

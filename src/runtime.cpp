@@ -17,6 +17,8 @@ namespace dharma_vm {
 	const string runtime_diagnostic_messages::import_file_not_found = "Import file not found.";
 	const string runtime_diagnostic_messages::import_file_not_found_but_source_file_present = "Import file not found but source file present; if it is part of the standard library, "
 		"please run 'karmac --compile-libkarma' to generate compiled versions of the source files.";
+	const string runtime_diagnostic_messages::use_the_add_function_to_add_an_element_to_an_empty_list = "Use the add function to add an element to an empty list.";
+	const string runtime_diagnostic_messages::cannot_remove_from_an_empty_dictionary = "Cannot 'remove' from an empty dictionary.";
 
 	runtime_type_information::runtime_type_information(runtime_type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn) {
 		t_kind = tk;

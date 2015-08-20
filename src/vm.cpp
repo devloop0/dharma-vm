@@ -11,6 +11,9 @@ namespace dharma_vm {
 		shared_ptr<function> exit_function = make_shared<function>(builtins::builtin_exit, vector<string>(), vector<string> { "", "" }, false, false, true);
 		shared_ptr<function> dict_add_function = make_shared<function>(builtins::builtin_add, vector<string>(), vector<string> { "", "", "" }, false, false, true);
 		shared_ptr<function> list_string_add_function = make_shared<function>(builtins::builtin_add, vector<string>(), vector<string> { "", "" }, false, false, true);
+		shared_ptr<function> insert_function = make_shared<function>(builtins::builtin_insert, vector<string>(), vector<string> { "", "", "" }, false, false, true);
+		shared_ptr<function> list_string_dict_remove_function = make_shared<function>(builtins::builtin_remove, vector<string>(), vector<string> { "", "" }, false, false, true);
+		shared_ptr<function> list_string_remove_function = make_shared<function>(builtins::builtin_remove, vector<string>(), vector<string> { "", "", "" }, false, false, true);
 		shared_ptr<runtime_variable> print_variable = make_shared<runtime_variable>(storage_field(-1, builtins::builtin_print, storage_field_kind::STORAGE_FIELD_IDENTIFIER),
 			-1, -1, builtins::builtin_print, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
@@ -23,7 +26,15 @@ namespace dharma_vm {
 			-1, -1, builtins::builtin_add, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
 				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { dict_add_function, list_string_add_function });
-		vector<shared_ptr<runtime_variable>> rvar_list{ print_variable, exit_variable, add_variable };
+		shared_ptr<runtime_variable> insert_variable = make_shared<runtime_variable>(storage_field(-1, builtins::builtin_insert, storage_field_kind::STORAGE_FIELD_IDENTIFIER),
+			-1, -1, builtins::builtin_insert, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { insert_function });
+		shared_ptr<runtime_variable> remove_variable = make_shared<runtime_variable>(storage_field(-1, builtins::builtin_remove, storage_field_kind::STORAGE_FIELD_IDENTIFIER),
+			-1, -1, builtins::builtin_remove, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { list_string_dict_remove_function, list_string_remove_function });
+		vector<shared_ptr<runtime_variable>> rvar_list{ print_variable, exit_variable, add_variable, insert_variable, remove_variable };
 		vector<vector<shared_ptr<runtime_variable>>> scope_stack;
 		program = make_shared<runtime>(sf.get_source(), rvar_list, vector<vector<shared_ptr<runtime_variable>>>(), scope_stack, vector<vector<shared_ptr<runtime_variable>>>(),
 			vector<shared_ptr<runtime_variable>>());

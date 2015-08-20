@@ -205,6 +205,8 @@ namespace dharma_vm {
 		const static string structure_members_are_initialized_early;
 		const static string import_file_not_found;
 		const static string import_file_not_found_but_source_file_present;
+		const static string use_the_add_function_to_add_an_element_to_an_empty_list;
+		const static string cannot_remove_from_an_empty_dictionary;
 	};
 
 	const vector<string> list_field_list = { "size" };
@@ -258,6 +260,9 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message);
 		shared_ptr<runtime_variable> add(shared_ptr<runtime_variable> dict, shared_ptr<runtime_variable> key, shared_ptr<runtime_variable> value);
 		shared_ptr<runtime_variable> add(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> element);
+		shared_ptr<runtime_variable> insert(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> pos, shared_ptr<runtime_variable> element);
+		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string_dict, shared_ptr<runtime_variable> key_index);
+		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> start, shared_ptr<runtime_variable> end);
 
 		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_builtin_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:

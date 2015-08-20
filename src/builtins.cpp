@@ -138,6 +138,8 @@ namespace dharma_vm {
 		if (dict->get_runtime_type_information() == runtime_type_information_list::_dict);
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dict);
+		if (dict->get_unmodifiable())
+			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, dict);
 		shared_ptr<runtime_variable> created_dict = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
 				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_dict,
@@ -219,6 +221,8 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> runtime::add(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> element) {
 		if (list_string == nullptr || element == nullptr)
 			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		if (list_string->get_unmodifiable())
+			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, list_string);
 		shared_ptr<runtime_variable> created_list_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
 				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), list_string->get_runtime_type_information(),
@@ -264,6 +268,193 @@ namespace dharma_vm {
 				created_list_string->set_string(created_list_string->get_string() + element->get_string());
 			else
 				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, element);
+		}
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, list_string);
+		return created_list_string;
+	}
+
+	shared_ptr<runtime_variable> runtime::insert(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> pos, shared_ptr<runtime_variable> element) {
+		if (list_string == nullptr || pos == nullptr || element == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		shared_ptr<runtime_variable> created_list_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), list_string->get_runtime_type_information(),
+			vector<shared_ptr<function>>());
+		created_list_string->set_list_tuple(list_string->get_list_tuple());
+		created_list_string->set_string(list_string->get_string());
+		runtime_temporary_count++;
+		if (pos->get_runtime_type_information() != runtime_type_information_list::_int)
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, pos);
+		if (list_string->get_unmodifiable())
+			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, list_string);
+		if (list_string->get_runtime_type_information() == runtime_type_information_list::_list) {
+			vector<shared_ptr<runtime_variable>> list = created_list_string->get_list_tuple();
+			if (list.size() == 0)
+				report_error_and_terminate_program(runtime_diagnostic_messages::use_the_add_function_to_add_an_element_to_an_empty_list, list_string);
+			if (pos->get_integer() < 0 || pos->get_integer() > list.size())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, pos);
+			runtime_type_information t_inf = created_list_string->get_list_tuple()[0]->get_runtime_type_information();
+			if (t_inf == element->get_runtime_type_information()) {
+				if (t_inf.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+					if (t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_CUSTOM || t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_MODULE ||
+						t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_ENUM || t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_ENUM_CHILD) {
+						if (list_string->get_list_tuple()[0]->get_unique_id() == element->get_unique_id());
+						else
+							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, element);
+					}
+				}
+			}
+			else if ((t_inf == runtime_type_information_list::_int && element->get_runtime_type_information() == runtime_type_information_list::_decimal) ||
+				(t_inf == runtime_type_information_list::_decimal && element->get_runtime_type_information() == runtime_type_information_list::_int)) {
+				if (t_inf == runtime_type_information_list::_int) {
+					element->set_integer(element->get_decimal());
+					element->set_runtime_type_information(runtime_type_information_list::_int);
+				}
+				else {
+					element->set_decimal(element->get_integer());
+					element->set_runtime_type_information(runtime_type_information_list::_decimal);
+				}
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, element);
+			list.insert(list.begin() + pos->get_integer(), element);
+			created_list_string->set_list_tuple(list);
+		}
+		else if (list_string->get_runtime_type_information() == runtime_type_information_list::_string) {
+			string str = created_list_string->get_string();
+			if (element->get_runtime_type_information() != runtime_type_information_list::_string)
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, element);
+			if (pos->get_integer() < 0 || pos->get_integer() > str.length())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, pos);
+			str.insert(pos->get_integer(), element->get_string());
+			created_list_string->set_string(str);
+		}
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, list_string);
+		return created_list_string;
+	}
+
+	shared_ptr<runtime_variable> runtime::remove(shared_ptr<runtime_variable> list_string_dict, shared_ptr<runtime_variable> key_index) {
+		if (list_string_dict == nullptr || key_index == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		shared_ptr<runtime_variable> created_list_string_dict = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), list_string_dict->get_runtime_type_information(),
+			vector<shared_ptr<function>>());
+		created_list_string_dict->set_list_tuple(list_string_dict->get_list_tuple());
+		created_list_string_dict->set_string(list_string_dict->get_string());
+		created_list_string_dict->set_dict(list_string_dict->get_dict());
+		runtime_temporary_count++;
+		if (list_string_dict->get_unmodifiable())
+			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, list_string_dict);
+		if (list_string_dict->get_runtime_type_information() == runtime_type_information_list::_dict) {
+			pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>> dict = created_list_string_dict->get_dict();
+			if (dict.first.size() != dict.second.size())
+				report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, list_string_dict);
+			if (dict.first.size() == 0)
+				report_error_and_terminate_program(runtime_diagnostic_messages::cannot_remove_from_an_empty_dictionary, list_string_dict);
+			runtime_type_information key_t_inf = dict.first[0]->get_runtime_type_information();
+			if (key_t_inf == key_index->get_runtime_type_information()) {
+				if (key_t_inf.get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO) {
+					if (key_t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_CUSTOM || key_t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_MODULE ||
+						key_t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_ENUM || key_t_inf.get_runtime_type_kind() == runtime_type_kind::TYPE_ENUM_CHILD) {
+						if (dict.first[0]->get_unique_id() == key_index->get_unique_id());
+						else
+							report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, key_index);
+					}
+				}
+			}
+			else if ((key_t_inf == runtime_type_information_list::_int && key_index->get_runtime_type_information() == runtime_type_information_list::_decimal) ||
+				(key_t_inf == runtime_type_information_list::_decimal && key_index->get_runtime_type_information() == runtime_type_information_list::_int)) {
+				if (key_t_inf == runtime_type_information_list::_int) {
+					key_index->set_integer(key_index->get_decimal());
+					key_index->set_runtime_type_information(runtime_type_information_list::_int);
+				}
+				else {
+					key_index->set_decimal(key_index->get_integer());
+					key_index->set_runtime_type_information(runtime_type_information_list::_decimal);
+				}
+			}
+			else
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, key_index);
+			int store = -1;
+			for (int i = 0; i < dict.first.size(); i++) {
+				shared_ptr<runtime_variable> k_temp = make_shared<runtime_variable>(key_index->get_storage_field(), key_index->get_integer(), key_index->get_decimal(), key_index->get_string(), key_index->get_boolean(),
+					key_index->get_list_tuple(), key_index->get_dict(), key_index->get_struct_enum_member_list(), key_index->get_module_runtime(), key_index->get_runtime_type_information(), key_index->get_function());
+				k_temp->set_unmodifiable(key_index->get_unmodifiable());
+				k_temp->set_unique_id(key_index->get_unique_id());
+				if ((k_temp == dict.first[i])->get_boolean()) {
+					store = i;
+					break;
+				}
+			}
+			if (store == -1);
+			else {
+				dict.first.erase(dict.first.begin() + store, dict.first.begin() + store + 1);
+				dict.second.erase(dict.second.begin() + store, dict.second.begin() + store + 1);
+			}
+			created_list_string_dict->set_dict(dict);
+		}
+		else if (list_string_dict->get_runtime_type_information() == runtime_type_information_list::_list) {
+			vector<shared_ptr<runtime_variable>> list = created_list_string_dict->get_list_tuple();
+			if (key_index->get_runtime_type_information() != runtime_type_information_list::_int)
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, key_index);
+			if (key_index->get_integer() < 0 || key_index->get_integer() > list.size())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, key_index);
+			list.erase(list.begin() + key_index->get_integer(), list.begin() + key_index->get_integer() + 1);
+			created_list_string_dict->set_list_tuple(list);
+		}
+		else if (list_string_dict->get_runtime_type_information() == runtime_type_information_list::_string) {
+			string str = created_list_string_dict->get_string();
+			if (key_index->get_runtime_type_information() != runtime_type_information_list::_int)
+				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, key_index);
+			if (key_index->get_integer() < 0 || key_index->get_integer() > str.length())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, key_index);
+			str.erase(key_index->get_integer(), 1);
+			created_list_string_dict->set_string(str);
+		}
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, list_string_dict);
+		return created_list_string_dict;
+	}
+	
+	shared_ptr<runtime_variable> runtime::remove(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> start, shared_ptr<runtime_variable> end) {
+		shared_ptr<runtime_variable> created_list_string = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", false,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), list_string->get_runtime_type_information(),
+			vector<shared_ptr<function>>());
+		created_list_string->set_list_tuple(list_string->get_list_tuple());
+		created_list_string->set_string(list_string->get_string());
+		runtime_temporary_count++;
+		if (list_string->get_unmodifiable())
+			report_error_and_terminate_program(runtime_diagnostic_messages::unmodifiable_value, list_string);
+		if (start->get_runtime_type_information() == runtime_type_information_list::_int);
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, start);
+		if (end->get_runtime_type_information() == runtime_type_information_list::_int);
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, end);
+		if (list_string->get_runtime_type_information() == runtime_type_information_list::_list) {
+			vector<shared_ptr<runtime_variable>> list = created_list_string->get_list_tuple();
+			if (start->get_integer() < 0 || start->get_integer() > list.size())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
+			if (end->get_integer() < 0 || end->get_integer() > list.size())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+			if (start->get_integer() > end->get_integer())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+			list.erase(list.begin() + start->get_integer(), list.begin() + end->get_integer());
+			created_list_string->set_list_tuple(list);
+		}
+		else if (list_string->get_runtime_type_information() == runtime_type_information_list::_string) {
+			string str = created_list_string->get_string();
+			if (start->get_integer() < 0 || start->get_integer() > str.length())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, start);
+			if (end->get_integer() < 0 || end->get_integer() > str.length())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+			if (start->get_integer() > end->get_integer())
+				report_error_and_terminate_program(runtime_diagnostic_messages::subscript_out_of_range, end);
+			str.erase(start->get_integer(), end->get_integer() - start->get_integer());
 		}
 		else
 			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, list_string);
