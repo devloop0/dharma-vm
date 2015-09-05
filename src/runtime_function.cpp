@@ -115,29 +115,25 @@ namespace dharma_vm {
 					func_list.push_back(rvar);
 			}
 		}
-		for (int i = 0; i < func_list.size(); i++) {
-			string str = func_list[i]->get_string();
-			if (str == builtins::builtin_add || str == builtins::builtin_exit || str == builtins::builtin_print || str == builtins::builtin_insert
-				|| str == builtins::builtin_remove) {
-				pair<shared_ptr<runtime_variable>, bool> res = make_pair(nullptr, false);
-				if (module_stack.size() > 0);
-				else
-					res = find_instruction(str);
-				if (res.second) {
-					for (int j = 0; j < func_list[i]->get_function().size(); j++)
-						res.first->add_function(func_list[i]->get_function()[j]);
-				}
-				else
-					checked_insertion(func_list[i]);
-			}
-			else
-				checked_insertion(func_list[i]);
-		}
+		for (int i = 0; i < func_list.size(); i++)
+			checked_insertion(func_list[i]);
 		return true;
 	}
 
 	shared_ptr<runtime_variable> runtime::run_function(vector<shared_ptr<function>> func_list, shared_ptr<runtime_variable> fvar, vector<shared_ptr<runtime_variable>> argument_list,
-		shared_ptr<runtime> r) {
+		shared_ptr<runtime> ru) {
+		shared_ptr<runtime> r = nullptr;
+		if (fvar->get_module_runtime()->get_instruction_list().size() > 0)
+			r = fvar->get_module_runtime();
+		else
+			r = ru;
+		if (fvar->get_string().substr(0, builtins::builtin_runtime_dll_module_prefix.length()) == builtins::builtin_runtime_dll_module_prefix) {
+			string str = fvar->get_string().substr(builtins::builtin_runtime_dll_module_prefix.length(), fvar->get_string().length());
+			string dll_name = str.substr(0, str.find("@")), function_name = str.substr(str.find("@") + 1, str.length());
+			typedef shared_ptr<locked_runtime_variable> (*karmaffi_t)(vector<shared_ptr<locked_runtime_variable>>);
+			karmaffi_t kft = (karmaffi_t)GetProcAddress(LoadLibrary(dll_name.c_str()), function_name.c_str());
+			return convert_from_ffi(kft(convert_to_ffi(argument_list)));
+		}
 		shared_ptr<function> func = nullptr;
 		for (int i = 0; i < func_list.size(); i++) {
 			if (func_list[i]->get_function_name() == fvar->get_string()) {
@@ -186,6 +182,8 @@ namespace dharma_vm {
 				return remove(argument_list[0], argument_list[1], argument_list[2]);
 			else if (func->get_function_name() == builtins::builtin_remove && argument_list.size() == 2)
 				return remove(argument_list[0], argument_list[1]);
+			else if (func->get_function_name() == builtins::builtin_load_library && argument_list.size() == 1)
+				return load_library(argument_list[0]);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();

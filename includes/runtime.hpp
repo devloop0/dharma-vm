@@ -14,6 +14,11 @@
 #include "includes/unified.hpp"
 #include "includes/file.hpp"
 #include "includes/vm.hpp"
+#include "includes/libkarmaffi.hpp"
+
+#if _WIN32
+#include <Windows.h>
+#endif
 
 using std::cout;
 using std::string;
@@ -35,11 +40,15 @@ using std::find_if;
 using std::stringstream;
 using std::getline;
 using std::for_each;
+using std::static_pointer_cast;
 
 using namespace unified_includes;
+using namespace libkarmaffi;
 using namespace std::chrono;
 
 namespace dharma_vm {
+
+	extern vector<shared_ptr<runtime_variable>> global_import_table;
 
 	class function;
 	class runtime_type_information;
@@ -207,6 +216,8 @@ namespace dharma_vm {
 		const static string import_file_not_found_but_source_file_present;
 		const static string use_the_add_function_to_add_an_element_to_an_empty_list;
 		const static string cannot_remove_from_an_empty_dictionary;
+		const static string native_function_not_found;
+		const static string unsupported_type_to_export_to_native;
 	};
 
 	const vector<string> list_field_list = { "size" };
@@ -256,6 +267,9 @@ namespace dharma_vm {
 		const bool struct_pass();
 		const bool enum_pass();
 
+		vector<shared_ptr<locked_runtime_variable>> convert_to_ffi(vector<shared_ptr<runtime_variable>> argument_list);
+		shared_ptr<runtime_variable> convert_from_ffi(shared_ptr<locked_runtime_variable> result);
+
 		shared_ptr<runtime_variable> print(shared_ptr<runtime_variable> rvar);
 		shared_ptr<runtime_variable> exit(shared_ptr<runtime_variable> exit_code, shared_ptr<runtime_variable> message);
 		shared_ptr<runtime_variable> add(shared_ptr<runtime_variable> dict, shared_ptr<runtime_variable> key, shared_ptr<runtime_variable> value);
@@ -263,8 +277,9 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> insert(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> pos, shared_ptr<runtime_variable> element);
 		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string_dict, shared_ptr<runtime_variable> key_index);
 		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> start, shared_ptr<runtime_variable> end);
+		shared_ptr<runtime_variable> load_library(shared_ptr<runtime_variable> dll_name);
 
-		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_builtin_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
+		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_special_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:
 			runtime(vector<string> vec, vector<shared_ptr<runtime_variable>> il, vector<vector<shared_ptr<runtime_variable>>> sfil,
 				vector<vector<shared_ptr<runtime_variable>>> ls, vector<vector<shared_ptr<runtime_variable>>> ms, vector<shared_ptr<runtime_variable>> alil);
