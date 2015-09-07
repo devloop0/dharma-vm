@@ -184,6 +184,8 @@ namespace dharma_vm {
 				return remove(argument_list[0], argument_list[1]);
 			else if (func->get_function_name() == builtins::builtin_load_library && argument_list.size() == 1)
 				return load_library(argument_list[0]);
+			else if (func->get_function_name() == builtins::builtin_input && argument_list.size() == 1)
+				return input(argument_list[0]);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();

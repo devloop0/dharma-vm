@@ -470,6 +470,23 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> created_dll = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, dll_name->get_string(), false,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector <vector<shared_ptr<runtime_variable>>>(),
 				vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information(runtime_type_kind::TYPE_MODULE, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, builtins::builtin_runtime_dll_module_prefix + dll_name->get_string()), vector<shared_ptr<function>>());
+		runtime_temporary_count++;
 		return created_dll;
+	}
+
+	shared_ptr<runtime_variable> runtime::input(shared_ptr<runtime_variable> prompt) {
+		if (prompt == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		if (prompt->get_runtime_type_information() == runtime_type_information_list::_string);
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, prompt);
+		cout << prompt->get_string();
+		string str;
+		cin >> str;
+		shared_ptr<runtime_variable> ret = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, str, false,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+				vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_string, vector<shared_ptr<function>>());
+		return ret;
 	}
 }

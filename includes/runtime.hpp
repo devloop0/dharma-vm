@@ -278,6 +278,7 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string_dict, shared_ptr<runtime_variable> key_index);
 		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> start, shared_ptr<runtime_variable> end);
 		shared_ptr<runtime_variable> load_library(shared_ptr<runtime_variable> dll_name);
+		shared_ptr<runtime_variable> input(shared_ptr<runtime_variable> prompt);
 
 		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_special_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:
