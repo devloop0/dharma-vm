@@ -186,6 +186,8 @@ namespace dharma_vm {
 				return load_library(argument_list[0]);
 			else if (func->get_function_name() == builtins::builtin_input && argument_list.size() == 1)
 				return input(argument_list[0]);
+			else if (func->get_function_name() == builtins::builtin_is_pure && argument_list.size() == 1)
+				return is_pure(argument_list[0]);
 		}
 		vector<string> vec = func->get_function_argument_list();
 		int save = instruction_list.size();
@@ -263,7 +265,8 @@ namespace dharma_vm {
 				string sname = insn_list[1];
 				vector<string> member_list(insn_list.begin() + 2, insn_list.end());
 				shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, sname, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, sname, false,
-					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), nullptr,
+					vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+					make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()),
 					runtime_type_information(runtime_type_kind::TYPE_CUSTOM, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, sname), vector<shared_ptr<function>>());
 				bool unmod = false;
 				if (insn_list[0] == vm_instruction_list::istruc) {

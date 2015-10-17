@@ -23,6 +23,7 @@ namespace dharma_vm {
 	const string runtime_diagnostic_messages::cannot_remove_from_an_empty_dictionary = "Cannot 'remove' from an empty dictionary.";
 	const string runtime_diagnostic_messages::native_function_not_found = "Native function not found.";
 	const string runtime_diagnostic_messages::unsupported_type_to_export_to_native = "Unsupported type to export to native.";
+	const string runtime_diagnostic_messages::cannot_take_the_type_of_an_already_pure_type = "Cannot take the type of an already pure type.";
 
 	runtime_type_information::runtime_type_information(runtime_type_kind tk, type_pure_kind tpk, type_class_kind tck, string cn) {
 		t_kind = tk;
@@ -372,8 +373,8 @@ namespace dharma_vm {
 			}
 			else {
 				float two = src->get_decimal();
-				dest->set_decimal(one + two);
-				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
+				dest->set_integer(one + (int) two);
+				dest->set_runtime_type_information(runtime_type_information_list::_int);
 				return dest;
 			}
 		}
@@ -413,8 +414,8 @@ namespace dharma_vm {
 			}
 			else {
 				float two = src->get_decimal();
-				dest->set_decimal(one - two);
-				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
+				dest->set_integer(one - (int) two);
+				dest->set_runtime_type_information(runtime_type_information_list::_int);
 				return dest;
 			}
 		}
@@ -454,8 +455,8 @@ namespace dharma_vm {
 			}
 			else {
 				float two = src->get_decimal();
-				dest->set_decimal(one * two);
-				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
+				dest->set_integer(one * (int) two);
+				dest->set_runtime_type_information(runtime_type_information_list::_int);
 				return dest;
 			}
 		}
@@ -495,8 +496,8 @@ namespace dharma_vm {
 			}
 			else {
 				float two = src->get_decimal();
-				dest->set_decimal(one / two);
-				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
+				dest->set_integer(one / (int) two);
+				dest->set_runtime_type_information(runtime_type_information_list::_int);
 				return dest;
 			}
 		}
@@ -536,8 +537,8 @@ namespace dharma_vm {
 			}
 			else {
 				float two = src->get_decimal();
-				dest->set_decimal(std::pow(one, two));
-				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
+				dest->set_integer(std::pow(one, (int) two));
+				dest->set_runtime_type_information(runtime_type_information_list::_int);
 				return dest;
 			}
 		}
@@ -600,6 +601,36 @@ namespace dharma_vm {
 		int one = dest->get_integer();
 		int two = src->get_integer();
 		dest->set_integer(one ^ two);
+		dest->set_runtime_type_information(runtime_type_information_list::_int);
+		return dest;
+	}
+
+	shared_ptr<runtime_variable> operator<<(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src) {
+		if (dest == nullptr || src == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		runtime_type_information type_one = dest->get_runtime_type_information();
+		runtime_type_information type_two = src->get_runtime_type_information();
+		if (type_one == runtime_type_information_list::_int && type_two == runtime_type_information_list::_int);
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		int one = dest->get_integer();
+		int two = src->get_integer();
+		dest->set_integer(one << two);
+		dest->set_runtime_type_information(runtime_type_information_list::_int);
+		return dest;
+	}
+
+	shared_ptr<runtime_variable> operator>>(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src) {
+		if (dest == nullptr || src == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		runtime_type_information type_one = dest->get_runtime_type_information();
+		runtime_type_information type_two = src->get_runtime_type_information();
+		if (type_one == runtime_type_information_list::_int && type_two == runtime_type_information_list::_int);
+		else
+			report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, dest);
+		int one = dest->get_integer();
+		int two = src->get_integer();
+		dest->set_integer(one >> two);
 		dest->set_runtime_type_information(runtime_type_information_list::_int);
 		return dest;
 	}
@@ -1511,7 +1542,7 @@ namespace dharma_vm {
 			}
 			else if (type_two == runtime_type_information_list::_decimal) {
 				dest->set_decimal(src->get_decimal());
-				dest->set_runtime_type_information(runtime_type_information_list::_int);
+				dest->set_runtime_type_information(runtime_type_information_list::_decimal);
 				dest->set_unique_id(src->get_unique_id());
 				return dest;
 			}
@@ -2283,8 +2314,13 @@ namespace dharma_vm {
 							pai = base->get_module_runtime()->find_instruction(to_find, make_pair(base->get_runtime_type_information().get_class_name() == "^", true));
 						if (!pai.second)
 							report_error_and_terminate_program(runtime_diagnostic_messages::field_not_found, base);
-						function_search = base->get_module_runtime();
+						bool special = false;
+						if (pai.first->get_module_runtime()->get_instruction_list().size() > 0) special = true;
+						else
+							function_search = base->get_module_runtime();
 						base = pai.first;
+						if (special)
+							function_search = base->get_module_runtime();
 						if (base_immut)
 							base->set_unmodifiable(true);
 					}
@@ -2977,19 +3013,24 @@ namespace dharma_vm {
 				string d = temp[1];
 				shared_ptr<runtime_variable> dest = deduce_runtime_variable(d, true);
 				if (op == vm_instruction_list::bneg) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__boolean_negate__, make_pair(true, false));
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__boolean_negate__);
 					if (dest->get_runtime_type_information() == runtime_type_information_list::_boolean)
 						dest = !dest;
-					else if (pai.second) {
+					else if (results.size() > 0) {
 						bool success = false;
-						for (int i = 0; i < pai.first->get_function().size(); i++) {
-							shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-							if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-							else {
-								dest = mov(dest, temp, false);
-								success = true;
-								break;
+						for (int j = 0; j < results.size(); j++) {
+							pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+							for (int i = 0; i < res.first->get_function().size(); i++) {
+								shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+								else {
+									dest = mov(dest, temp, false);
+									success = true;
+									break;
+								}
 							}
+							if (success)
+								break;
 						}
 						if (!success)
 							dest = !dest;
@@ -2998,19 +3039,24 @@ namespace dharma_vm {
 						dest = !dest;
 				}
 				else if (op == vm_instruction_list::cmpl) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__complement__, make_pair(true, false));
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__complement__);
 					if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
 						dest = ~dest;
-					else if (pai.second) {
+					else if (results.size() > 0) {
 						bool success = false;
-						for (int i = 0; i < pai.first->get_function().size(); i++) {
-							shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-							if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-							else {
-								dest = mov(dest, temp, false);
-								success = true;
-								break;
+						for (int j = 0; j < results.size(); j++) {
+							pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+							for (int i = 0; i < res.first->get_function().size(); i++) {
+								shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+								else {
+									dest = mov(dest, temp, false);
+									success = true;
+									break;
+								}
 							}
+							if (success)
+								break;
 						}
 						if (!success)
 							dest = ~dest;
@@ -3018,22 +3064,28 @@ namespace dharma_vm {
 					else
 						dest = ~dest;
 				}
-				else if (op == vm_instruction_list::tyof)
+				else if (op == vm_instruction_list::tyof) {
 					dest = tyof(dest);
+				}
 				else if (op == vm_instruction_list::poinc || op == vm_instruction_list::princ) {
 					if (op == vm_instruction_list::princ) {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__pre_increment__, make_pair(true, false));
+						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__pre_increment__);
 						if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
 							dest = inc(dest);
-						else if (pai.second) {
+						else if (results.size() > 0) {
 							bool success = false;
-							for (int i = 0; i < pai.first->get_function().size(); i++) {
-								shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-								else {
-									success = true;
-									break;
+							for (int j = 0; j < results.size(); j++) {
+								pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+								for (int i = 0; i < res.first->get_function().size(); i++) {
+									shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+									if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+									else {
+										success = true;
+										break;
+									}
 								}
+								if (success)
+									break;
 							}
 							if (!success)
 								dest = inc(dest);
@@ -3042,18 +3094,23 @@ namespace dharma_vm {
 							dest = inc(dest);
 					}
 					else {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__post_increment__, make_pair(true, false));
+						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__post_increment__);
 						if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
 							dest = inc(dest);
-						else if (pai.second) {
+						else if (results.size() > 0) {
 							bool success = false;
-							for (int i = 0; i < pai.first->get_function().size(); i++) {
-								shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-								else {
-									success = true;
-									break;
+							for (int j = 0; j < results.size(); j++) {
+								pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+								for (int i = 0; i < res.first->get_function().size(); i++) {
+									shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+									if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+									else {
+										success = true;
+										break;
+									}
 								}
+								if (success)
+									break;
 							}
 							if (!success)
 								dest = inc(dest);
@@ -3064,18 +3121,23 @@ namespace dharma_vm {
 				}
 				else if (op == vm_instruction_list::podec || op == vm_instruction_list::prdec) {
 					if (op == vm_instruction_list::prdec) {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__pre_decrement__, make_pair(true, false));
+						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__pre_decrement__);
 						if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
 							dest = dec(dest);
-						else if (pai.second) {
+						else if (results.size() > 0) {
 							bool success = false;
-							for (int i = 0; i < pai.first->get_function().size(); i++) {
-								shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-								else {
-									success = true;
-									break;
+							for (int j = 0; j < results.size(); j++) {
+								pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+								for (int i = 0; i < res.first->get_function().size(); i++) {
+									shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+									if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+									else {
+										success = true;
+										break;
+									}
 								}
+								if (success)
+									break;
 							}
 							if (!success)
 								dest = dec(dest);
@@ -3084,18 +3146,23 @@ namespace dharma_vm {
 							dest = dec(dest);
 					}
 					else {
-						pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__post_decrement__, make_pair(true, false));
+						vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__post_decrement__);
 						if (dest->get_runtime_type_information() == runtime_type_information_list::_int)
 							dest = dec(dest);
-						else if (pai.second) {
+						else if (results.size() > 0) {
 							bool success = false;
-							for (int i = 0; i < pai.first->get_function().size(); i++) {
-								shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-								else {
-									success = true;
-									break;
+							for (int j = 0; j < results.size(); j++) {
+								pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+								for (int i = 0; i < res.first->get_function().size(); i++) {
+									shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+									if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+									else {
+										success = true;
+										break;
+									}
 								}
+								if (success)
+									break;
 							}
 							if (!success)
 								dest = dec(dest);
@@ -3105,19 +3172,24 @@ namespace dharma_vm {
 					}
 				}
 				else if (op == vm_instruction_list::neg) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__numeric_negate__, make_pair(true, false));
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__numeric_negate__);
 					if (dest->get_runtime_type_information() == runtime_type_information_list::_int || dest->get_runtime_type_information() == runtime_type_information_list::_decimal)
 						dest = -dest;
-					else if (pai.second) {
+					else if (results.size() > 0) {
 						bool success = false;
-						for (int i = 0; i < pai.first->get_function().size(); i++) {
-							shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-							if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-							else {
-								dest = mov(dest, temp, false);
-								success = true;
-								break;
+						for (int j = 0; j < results.size(); j++) {
+							pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+							for (int i = 0; i < res.first->get_function().size(); i++) {
+								shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+								else {
+									dest = mov(dest, temp, false);
+									success = true;
+									break;
+								}
 							}
+							if (success)
+								break;
 						}
 						if (!success)
 							dest = -dest;
@@ -3126,19 +3198,24 @@ namespace dharma_vm {
 						dest = -dest;
 				}
 				else if (op == vm_instruction_list::pos) {
-					pair<shared_ptr<runtime_variable>, bool> pai = find_instruction(builtins::builtin__numeric_positive__, make_pair(true, false));
+					vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__numeric_positive__);
 					if (dest->get_runtime_type_information() == runtime_type_information_list::_int || dest->get_runtime_type_information() == runtime_type_information_list::_decimal)
 						dest = +dest;
-					else if (pai.second) {
+					else if (results.size() > 0) {
 						bool success = false;
-						for (int i = 0; i < pai.first->get_function().size(); i++) {
-							shared_ptr<runtime_variable> temp = run_function({ pai.first->get_function()[i] }, pai.first, { dest }, nullptr);
-							if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
-							else {
-								dest = mov(dest, temp, false);
-								success = true;
-								break;
+						for (int j = 0; j < results.size(); j++) {
+							pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+							for (int i = 0; i < res.first->get_function().size(); i++) {
+								shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest }, res.second);
+								if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+								else {
+									dest = mov(dest, temp, false);
+									success = true;
+									break;
+								}
 							}
+							if (success)
+								break;
 						}
 						if (!success)
 							dest = +dest;
@@ -3167,12 +3244,11 @@ namespace dharma_vm {
 					if(import_name == module_name)
 						instruction_list.push_back(global_import_table[index]);
 					else {
-						shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, global_import_table[index]->get_storage_field().get_identifier(), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, module_name, false,
+						shared_ptr<runtime_variable> rvar = make_shared<runtime_variable>(storage_field(-1, module_name, storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, module_name, false,
 							vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 							global_import_table[index]->get_module_runtime(), runtime_type_information(runtime_type_kind::TYPE_MODULE, type_pure_kind::TYPE_PURE_NO, type_class_kind::TYPE_CLASS_YES, builtins::builtin_runtime_file_module_prefix + module_name), vector<shared_ptr<function>>());
 						rvar->set_unique_id(global_import_table[index]->get_unique_id());
-						checked_insertion(rvar);
-
+						instruction_list.push_back(rvar);
 					}
 				}
 				else {
@@ -3904,6 +3980,114 @@ namespace dharma_vm {
 							}
 							else
 								dest = dest ^ src;
+						}
+					}
+					else if (op == vm_instruction_list::shl || op == vm_instruction_list::shle) {
+						if (op == vm_instruction_list::shl) {
+							vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__shift_left__);
+							if (dest->get_runtime_type_information() == runtime_type_information_list::_int && src->get_runtime_type_information() == runtime_type_information_list::_int)
+								dest = dest << src;
+							else if (results.size() > 0) {
+								bool success = false;
+								for (int j = 0; j < results.size(); j++) {
+									pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+									for (int i = 0; i < res.first->get_function().size(); i++) {
+										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
+										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+										else {
+											dest = mov(dest, temp, false);
+											success = true;
+											break;
+										}
+									}
+									if (success)
+										break;
+								}
+								if (!success)
+									dest = dest << src;
+							}
+							else
+								dest = dest << src;
+						}
+						else {
+							vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__shift_left_equals__);
+							if (dest->get_runtime_type_information() == runtime_type_information_list::_int && src->get_runtime_type_information() == runtime_type_information_list::_int)
+								dest = dest << src;
+							else if (results.size() > 0) {
+								bool success = false;
+								for (int j = 0; j < results.size(); j++) {
+									pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+									for (int i = 0; i < res.first->get_function().size(); i++) {
+										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
+										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+										else {
+											dest = mov(dest, temp, false);
+											success = true;
+											break;
+										}
+									}
+									if (success)
+										break;
+								}
+								if (!success)
+									dest = dest << src;
+							}
+							else
+								dest = dest << src;
+						}
+					}
+					else if (op == vm_instruction_list::shr || op == vm_instruction_list::shre) {
+						if (op == vm_instruction_list::shr) {
+							vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__shift_right__);
+							if (dest->get_runtime_type_information() == runtime_type_information_list::_int && src->get_runtime_type_information() == runtime_type_information_list::_int)
+								dest = dest >> src;
+							else if (results.size() > 0) {
+								bool success = false;
+								for (int j = 0; j < results.size(); j++) {
+									pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+									for (int i = 0; i < res.first->get_function().size(); i++) {
+										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
+										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+										else {
+											dest = mov(dest, temp, false);
+											success = true;
+											break;
+										}
+									}
+									if (success)
+										break;
+								}
+								if (!success)
+									dest = dest >> src;
+							}
+							else
+								dest = dest >> src;
+						}
+						else {
+							vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> results = find_special_function(instruction_list, nullptr, builtins::builtin__shift_right_equals__);
+							if (dest->get_runtime_type_information() == runtime_type_information_list::_int && src->get_runtime_type_information() == runtime_type_information_list::_int)
+								dest = dest >> src;
+							else if (results.size() > 0) {
+								bool success = false;
+								for (int j = 0; j < results.size(); j++) {
+									pair<shared_ptr<runtime_variable>, shared_ptr<runtime>> res = results[j];
+									for (int i = 0; i < res.first->get_function().size(); i++) {
+										shared_ptr<runtime_variable> temp = run_function({ res.first->get_function()[i] }, res.first, { dest, src }, res.second);
+										if (temp->get_runtime_type_information() == runtime_type_information_list::_nil);
+										else {
+											dest = mov(dest, temp, false);
+											success = true;
+											break;
+										}
+									}
+									if (success)
+										break;
+								}
+								if (!success)
+									dest = dest >> src;
+							}
+							else
+								dest = dest >> src;
 						}
 					}
 					else if (op == vm_instruction_list::land) {

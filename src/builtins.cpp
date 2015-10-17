@@ -90,10 +90,8 @@ namespace dharma_vm {
 					if (success)
 						break;
 				}
-				if (!success)
-					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 			}
-			else if (!success) {
+			if (!success) {
 				if (rvar->get_runtime_type_information().get_runtime_type_kind() == runtime_type_kind::TYPE_CUSTOM && rvar->get_runtime_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO)
 					cout << "Struct: " << rvar->get_string();
 				else if (rvar->get_runtime_type_information().get_runtime_type_kind() == runtime_type_kind::TYPE_MODULE && rvar->get_runtime_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_NO)
@@ -105,8 +103,6 @@ namespace dharma_vm {
 				else
 					report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 			}
-			else
-				report_error_and_terminate_program(runtime_diagnostic_messages::incompatible_types, rvar);
 		}
 		shared_ptr<runtime_variable> ret = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", true,
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(), make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(),
@@ -487,6 +483,19 @@ namespace dharma_vm {
 			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(),
 				vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_string, vector<shared_ptr<function>>());
+		return ret;
+	}
+
+	shared_ptr<runtime_variable> runtime::is_pure(shared_ptr<runtime_variable> rvar) {
+		if (rvar == nullptr)
+			report_error_and_terminate_program(runtime_diagnostic_messages::fatal_error, nullptr);
+		bool pure = false;
+		if (rvar->get_runtime_type_information().get_type_pure_kind() == type_pure_kind::TYPE_PURE_YES)
+			pure = true;
+		shared_ptr<runtime_variable> ret = make_shared<runtime_variable>(storage_field(-1, runtime_temporary_prefix + to_string(runtime_temporary_count), storage_field_kind::STORAGE_FIELD_IDENTIFIER), -1, -1, "", pure,
+			vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+				vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_boolean, vector<shared_ptr<function>>());
 		return ret;
 	}
 }

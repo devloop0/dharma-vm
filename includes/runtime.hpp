@@ -174,6 +174,8 @@ namespace dharma_vm {
 	shared_ptr<runtime_variable> operator^(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator&(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> operator|(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	shared_ptr<runtime_variable> operator<<(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
+	shared_ptr<runtime_variable> operator>>(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	shared_ptr<runtime_variable> pow(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
 	
 	shared_ptr<runtime_variable> operator<(shared_ptr<runtime_variable> dest, shared_ptr<runtime_variable> src);
@@ -218,6 +220,7 @@ namespace dharma_vm {
 		const static string cannot_remove_from_an_empty_dictionary;
 		const static string native_function_not_found;
 		const static string unsupported_type_to_export_to_native;
+		const static string cannot_take_the_type_of_an_already_pure_type;
 	};
 
 	const vector<string> list_field_list = { "size" };
@@ -279,6 +282,7 @@ namespace dharma_vm {
 		shared_ptr<runtime_variable> remove(shared_ptr<runtime_variable> list_string, shared_ptr<runtime_variable> start, shared_ptr<runtime_variable> end);
 		shared_ptr<runtime_variable> load_library(shared_ptr<runtime_variable> dll_name);
 		shared_ptr<runtime_variable> input(shared_ptr<runtime_variable> prompt);
+		shared_ptr<runtime_variable> is_pure(shared_ptr<runtime_variable> rvar);
 
 		vector<pair<shared_ptr<runtime_variable>, shared_ptr<runtime>>> find_special_function(vector<shared_ptr<runtime_variable>> to_search, shared_ptr<runtime> r, string bf);
 		public:

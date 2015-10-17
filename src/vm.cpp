@@ -16,6 +16,7 @@ namespace dharma_vm {
 		shared_ptr<function> list_string_remove_function = make_shared<function>(builtins::builtin_remove, vector<string>(), vector<string> { "", "", "" }, false, false, true);
 		shared_ptr<function> load_library_function = make_shared<function>(builtins::builtin_load_library, vector<string>(), vector<string> { "" }, false, false, true);
 		shared_ptr<function> input_function = make_shared<function>(builtins::builtin_input, vector<string>(), vector<string> { "" }, false, false, true);
+		shared_ptr<function> is_pure_function = make_shared<function>(builtins::builtin_is_pure, vector<string>(), vector<string> { "" }, false, false, true);
 		shared_ptr<runtime_variable> print_variable = make_shared<runtime_variable>(storage_field(-1, builtins::builtin_print, storage_field_kind::STORAGE_FIELD_IDENTIFIER),
 			-1, -1, builtins::builtin_print, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
@@ -44,7 +45,11 @@ namespace dharma_vm {
 			-1, -1, builtins::builtin_input, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
 			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
 				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { input_function });
-		vector<shared_ptr<runtime_variable>> rvar_list{ print_variable, exit_variable, add_variable, insert_variable, remove_variable, load_library_variable, input_variable };
+		shared_ptr<runtime_variable> is_pure_variable = make_shared<runtime_variable>(storage_field(-1, builtins::builtin_is_pure, storage_field_kind::STORAGE_FIELD_IDENTIFIER),
+			-1, -1, builtins::builtin_is_pure, false, vector<shared_ptr<runtime_variable>>(), pair<vector<shared_ptr<runtime_variable>>, vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>(),
+			make_shared<runtime>(vector<string>(), vector<shared_ptr<runtime_variable>>(), vector<vector<shared_ptr<runtime_variable>>>(),
+				vector<vector<shared_ptr<runtime_variable>>>(), vector<vector<shared_ptr<runtime_variable>>>(), vector<shared_ptr<runtime_variable>>()), runtime_type_information_list::_func, vector<shared_ptr<function>> { is_pure_function });
+		vector<shared_ptr<runtime_variable>> rvar_list{ print_variable, exit_variable, add_variable, insert_variable, remove_variable, load_library_variable, input_variable, is_pure_variable };
 		vector<vector<shared_ptr<runtime_variable>>> scope_stack;
 		program = make_shared<runtime>(sf.get_source(), rvar_list, vector<vector<shared_ptr<runtime_variable>>>(), scope_stack, vector<vector<shared_ptr<runtime_variable>>>(),
 			vector<shared_ptr<runtime_variable>>());
