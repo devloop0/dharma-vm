@@ -77,8 +77,6 @@ build/
 *.pidb
 *.log
 *.scc
-*.sln
-*.vcxproj
 *.vcxproj.filters
 
 # Visual C++ cache files
